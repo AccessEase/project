@@ -1,96 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Symbol Communication Board</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background: #f4f4f9; text-align: center; }
-    
-    /* Sentence Bar */
-    #sentence-bar {
-      min-height: 80px; background: #fff; border: 3px solid #333;
-      border-radius: 12px; display: flex; align-items: center;
-      justify-content: flex-start; padding: 10px; gap: 10px; margin-bottom: 20px;
-    }
-    
-    /* Grid */
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; }
-    
-    /* Symbol Card */
-    .card {
-      background: #fff; border: 2px solid #ccc; border-radius: 10px;
-      padding: 15px; cursor: pointer; text-align: center; user-select: none;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .card:focus, .card:hover { border-color: #007bff; outline: 3px solid #007bff; }
-    .card img { width: 50px; height: 50px; display: block; margin: 0 auto 8px; }
-    .card span { font-size: 1.1rem; font-weight: bold; }
-    
-    /* Fitzgerald Color Schemes */
-    .verb { background-color: #ffe6e6; }
-    .noun { background-color: #fff9e6; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccessAble - Modular Accessibility Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- Skip Link for Screen Readers -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <!-- Top Output Bar -->
-  <div id="sentence-bar" aria-live="polite"></div>
-  <button onclick="speakSentence()" style="padding: 10px 20px; font-size: 1.2rem; cursor: pointer;">🔊 Speak All</button>
-  <button onclick="clearSentence()" style="padding: 10px 20px; font-size: 1.2rem; cursor: pointer;">❌ Clear</button>
+    <!-- Top Navigation Bar -->
+    <header role="banner" class="top-bar">
+        <div class="logo">
+            <h1>AccessAble</h1>
+        </div>
+        <nav role="navigation" aria-label="Main navigation">
+            <button id="profile-btn" class="nav-btn" aria-haspopup="true" aria-expanded="false">
+                <span class="btn-icon">👤</span>
+                <span class="btn-text">Profile</span>
+            </button>
+            <button id="settings-btn" class="nav-btn" aria-haspopup="true" aria-expanded="false">
+                <span class="btn-icon">⚙️</span>
+                <span class="btn-text">Settings</span>
+            </button>
+            <button id="help-btn" class="nav-btn" aria-haspopup="true" aria-expanded="false">
+                <span class="btn-icon">❓</span>
+                <span class="btn-text">Help</span>
+            </button>
+        </nav>
+    </header>
 
-  <h2 style="margin-top: 30px;">Tap a Symbol</h2>
-  
-  <!-- Symbol Grid -->
-  <div class="grid">
-    <button class="card verb" onclick="addWord('Want', 'https://api.iconify.design/fluent-emoji-flat:backhand-index-pointing-right.svg')">
-      <img src="https://api.iconify.design/fluent-emoji-flat:backhand-index-pointing-right.svg" alt="" />
-      <span>Want</span>
-    </button>
-    <button class="card verb" onclick="addWord('Drink', 'https://api.iconify.design/fluent-emoji-flat:tropical-drink.svg')">
-      <img src="https://api.iconify.design/fluent-emoji-flat:tropical-drink.svg" alt="" />
-      <span>Drink</span>
-    </button>
-    <button class="card noun" onclick="addWord('Water', 'https://api.iconify.design/fluent-emoji-flat:potable-water.svg')">
-      <img src="https://api.iconify.design/fluent-emoji-flat:potable-water.svg" alt="" />
-      <span>Water</span>
-    </button>
-  </div>
+    <!-- Profile Selection Modal -->
+    <div id="profile-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" hidden>
+        <div class="modal-content">
+            <h2 id="profile-modal-title">Choose Your Profile</h2>
+            <div class="profile-grid">
+                <button class="profile-card" data-profile="default">
+                    <span class="profile-icon">🏠</span>
+                    <h3>Default</h3>
+                    <p>Standard layout with all features</p>
+                </button>
+                <button class="profile-card" data-profile="low-vision">
+                    <span class="profile-icon">👁️</span>
+                    <h3>Low Vision</h3>
+                    <p>Large text, high contrast</p>
+                </button>
+                <button class="profile-card" data-profile="communication">
+                    <span class="profile-icon">💬</span>
+                    <h3>Communication</h3>
+                    <p>AAC board, text-to-speech</p>
+                </button>
+                <button class="profile-card" data-profile="motor">
+                    <span class="profile-icon">✋</span>
+                    <h3>Motor Impairment</h3>
+                    <p>Large buttons, voice control</p>
+                </button>
+                <button class="profile-card" data-profile="cognitive">
+                    <span class="profile-icon">🧠</span>
+                    <h3>Cognitive Support</h3>
+                    <p>Simplified layout, focus mode</p>
+                </button>
+                <button class="profile-card" data-profile="deaf">
+                    <span class="profile-icon">👂</span>
+                    <h3>Deaf / Hard of Hearing</h3>
+                    <p>Visual alerts, text focus</p>
+                </button>
+            </div>
+            <button class="close-modal" id="close-profile-modal">Close</button>
+        </div>
+    </div>
 
-  <script>
-    let sentence = [];
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" hidden>
+        <div class="modal-content">
+            <h2 id="settings-modal-title">Settings</h2>
+            <div class="settings-section">
+                <h3>Display</h3>
+                <label>
+                    <input type="checkbox" id="high-contrast-toggle"> High Contrast Mode
+                </label>
+                <label>
+                    <input type="checkbox" id="large-text-toggle"> Large Text
+                </label>
+                <label>
+                    <input type="checkbox" id="reduce-motion-toggle"> Reduce Motion
+                </label>
+            </div>
+            <div class="settings-section">
+                <h3>Modules</h3>
+                <label>
+                    <input type="checkbox" id="module-emergency" checked> Emergency Module
+                </label>
+                <label>
+                    <input type="checkbox" id="module-communication" checked> Communication Module
+                </label>
+                <label>
+                    <input type="checkbox" id="module-quick-actions"> Quick Actions Module
+                </label>
+                <label>
+                    <input type="checkbox" id="module-info"> Information Module
+                </label>
+            </div>
+            <button class="close-modal" id="close-settings-modal">Save & Close</button>
+        </div>
+    </div>
 
-    function addWord(word, iconUrl) {
-      sentence.push(word);
-      
-      // Speak single word immediately on tap
-      speakText(word);
+    <!-- Main Content Area -->
+    <main id="main-content" role="main" class="dashboard-container">
+        <!-- Emergency Module (Always Visible) -->
+        <section id="emergency-module" class="module emergency-module" aria-labelledby="emergency-title">
+            <h2 id="emergency-title" class="module-title">🚨 Emergency</h2>
+            <button id="emergency-btn" class="emergency-btn" aria-label="Emergency button - Get immediate help">
+                <span class="emergency-icon">🆘</span>
+                <span class="emergency-text">EMERGENCY</span>
+            </button>
+            <div id="emergency-actions" class="emergency-actions" hidden>
+                <button class="action-btn" id="call-emergency">📞 Call 8891072007</button>
+                <button class="action-btn" id="send-alert">📱 Send Alert</button>
+                <button class="action-btn" id="show-help-card">🪧 Show Help Card</button>
+            </div>
+        </section>
 
-      // Render image in top sentence bar
-      const bar = document.getElementById('sentence-bar');
-      const item = document.createElement('div');
-      item.className = 'card';
-      item.innerHTML = `<img src="${iconUrl}" alt="" /><span>${word}</span>`;
-      bar.appendChild(item);
-    }
+        <!-- Communication Module -->
+        <section id="communication-module" class="module communication-module" aria-labelledby="communication-title" hidden>
+            <h2 id="communication-title" class="module-title">💬 Communication Board</h2>
+            <div class="phrase-grid" role="grid" aria-label="Communication phrases">
+                <button class="phrase-btn" data-phrase="I need help" aria-label="Say: I need help">I need help</button>
+                <button class="phrase-btn" data-phrase="I need water" aria-label="Say: I need water">I need water</button>
+                <button class="phrase-btn" data-phrase="I need food" aria-label="Say: I need food">I need food</button>
+                <button class="phrase-btn" data-phrase="I need medicine" aria-label="Say: I need medicine">I need medicine</button>
+                <button class="phrase-btn" data-phrase="I am in pain" aria-label="Say: I am in pain">I am in pain</button>
+                <button class="phrase-btn" data-phrase="I need the bathroom" aria-label="Say: I need the bathroom">I need the bathroom</button>
+                <button class="phrase-btn" data-phrase="Yes" aria-label="Say: Yes">Yes</button>
+                <button class="phrase-btn" data-phrase="No" aria-label="Say: No">No</button>
+                <button class="phrase-btn" data-phrase="Thank you" aria-label="Say: Thank you">Thank you</button>
+                <button class="phrase-btn" data-phrase="I am tired" aria-label="Say: I am tired">I am tired</button>
+                <button class="phrase-btn" data-phrase="I am cold" aria-label="Say: I am cold">I am cold</button>
+                <button class="phrase-btn" data-phrase="I am hot" aria-label="Say: I am hot">I am hot</button>
+            </div>
+            <div class="custom-phrase-section">
+                <input type="text" id="custom-phrase-input" placeholder="Type custom phrase..." aria-label="Custom phrase input">
+                <button id="speak-custom-btn" class="action-btn">Speak</button>
+            </div>
+        </section>
 
-    function speakText(text) {
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
-      }
-    }
+        <!-- Quick Actions Module -->
+        <section id="quick-actions-module" class="module quick-actions-module" aria-labelledby="quick-actions-title" hidden>
+            <h2 id="quick-actions-title" class="module-title">⚡ Quick Actions</h2>
+            <div class="quick-actions-grid">
+                <button class="quick-action-btn" data-action="call-caregiver">📞 Call Caregiver</button>
+                <button class="quick-action-btn" data-action="send-location">📍 Send Location</button>
+                <button class="quick-action-btn" data-action="play-music">🎵 Play Music</button>
+                <button class="quick-action-btn" data-action="set-reminder">⏰ Set Reminder</button>
+            </div>
+        </section>
 
-    function speakSentence() {
-      if (sentence.length > 0) {
-        speakText(sentence.join(' '));
-      }
-    }
+        <!-- Information Module -->
+        <section id="info-module" class="module info-module" aria-labelledby="info-title" hidden>
+            <h2 id="info-title" class="module-title">ℹ️ Information</h2>
+            <div class="info-content">
+                <p>Welcome to AccessAble! This dashboard is designed to help you communicate and access emergency services.</p>
+                <h3>How to use:</h3>
+                <ul>
+                    <li>Use the <strong>Profile</strong> button to select a preset for your needs</li>
+                    <li>Use the <strong>Emergency</strong> button for immediate help</li>
+                    <li>Use the <strong>Communication Board</strong> to speak phrases aloud</li>
+                    <li>Use <strong>Settings</strong> to customize your experience</li>
+                </ul>
+            </div>
+        </section>
+    </main>
 
-    function clearSentence() {
-      sentence = [];
-      document.getElementById('sentence-bar').innerHTML = '';
-    }
-  </script>
+    <!-- Help Card Modal (for emergency) -->
+    <div id="help-card-modal" class="modal help-card-modal" role="dialog" aria-modal="true" aria-labelledby="help-card-title" hidden>
+        <div class="modal-content help-card-content">
+            <h2 id="help-card-title" class="help-card-title">🆘 I NEED EMERGENCY HELP</h2>
+            <p class="help-card-text">Please call my emergency contact:</p>
+            <p class="help-card-contact"><strong>Emergency Contact: 8891072007</strong></p>
+            <p class="help-card-location" id="help-card-location">Location: Loading...</p>
+            <button class="close-modal" id="close-help-card">Close</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer role="contentinfo" class="footer">
+        <p>&copy; 2026 AccessAble. Built for accessibility.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
 </body>
 </html>
