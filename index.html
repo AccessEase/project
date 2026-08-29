@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f62fe" />
-  <title>AccessAble | Communication & Emergency Dashboard</title>
+  <title>AccessAble | Select Your Needs</title>
   <style>
     :root {
       --bg: #f4f7fb;
@@ -14,8 +14,6 @@
       --border: #cbd5e1;
       --primary: #075bc8;
       --primary-dark: #03499f;
-      --danger: #be123c;
-      --danger-dark: #9f1239;
       --focus: #f59e0b;
       --shadow: 0 10px 30px rgba(15, 23, 42, .12);
       --radius: 16px;
@@ -32,13 +30,11 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.5;
     }
-    button, input { font: inherit; }
-    button { cursor: pointer; }
-    button:focus-visible, input:focus-visible {
+    button { cursor: pointer; font: inherit; }
+    button:focus-visible {
       outline: 4px solid var(--focus);
       outline-offset: 3px;
     }
-    [hidden] { display: none !important; }
 
     .skip-link {
       position: fixed;
@@ -52,137 +48,114 @@
     }
     .skip-link:focus { top: 12px; }
 
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 14px clamp(16px, 4vw, 48px);
-      color: var(--text);
-      background: var(--surface);
-      border-bottom: 2px solid var(--border);
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: clamp(24px, 5vw, 48px);
     }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brand-mark { font-size: 1.9rem; }
-    .brand h1 { margin: 0; font-size: 1.35rem; }
-    .brand p { margin: 0; color: var(--muted); font-size: .9rem; }
-    .top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-    .button {
-      min-height: 48px;
-      padding: 10px 16px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      color: var(--text);
-      font-weight: 700;
+    header {
+      text-align: center;
+      margin-bottom: 32px;
     }
-    .button:hover { border-color: var(--primary); background: #eaf3ff; }
-    .button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .button.primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-    .button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-    .button.danger:hover { background: var(--danger-dark); border-color: var(--danger-dark); }
-
-    main { max-width: 1280px; margin: auto; padding: clamp(16px, 3vw, 36px); }
-    .intro { margin-bottom: 22px; }
-    .intro h2 { margin: 0 0 6px; font-size: clamp(1.45rem, 3vw, 2rem); }
-    .intro p { margin: 0; color: var(--muted); }
-
-    .dashboard {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 18px;
-      align-items: start;
+    header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      color: var(--primary);
     }
-    .module {
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+
+    .selection-card {
       background: var(--surface);
       border: 2px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: clamp(20px, 4vw, 36px);
       box-shadow: var(--shadow);
     }
-    .module.wide { grid-column: 1 / -1; }
-    .module h2 { margin: 0 0 12px; font-size: 1.3rem; }
-    .module p { color: var(--muted); }
 
-    .emergency-module { border: 4px solid var(--danger); }
-    .emergency-row { display: grid; grid-template-columns: minmax(210px, 1fr) 1fr; gap: 20px; align-items: center; }
-    .emergency-button {
-      min-height: 145px;
-      width: 100%;
-      border: 0;
-      border-radius: 18px;
-      background: var(--danger);
-      color: white;
-      font-weight: 900;
-      font-size: clamp(1.5rem, 4vw, 2.4rem);
-      letter-spacing: .04em;
-      box-shadow: 0 8px 0 var(--danger-dark);
+    .selection-card h2 {
+      margin: 0 0 12px;
+      font-size: clamp(1.3rem, 3vw, 1.8rem);
     }
-    .emergency-button:hover { background: var(--danger-dark); transform: translateY(1px); }
-    .emergency-button:active { transform: translateY(5px); box-shadow: 0 3px 0 #701a2e; }
-    .emergency-button span { display: block; font-size: 1.3rem; letter-spacing: 0; margin-top: 4px; }
-    .emergency-actions { display: grid; gap: 10px; }
-    .notice { padding: 12px; border-left: 5px solid var(--primary); background: #eaf3ff; color: #153d70; border-radius: 8px; }
 
-    .phrase-grid, .quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-    .phrase {
-      min-height: 92px;
-      padding: 12px;
-      border: 2px solid var(--primary);
-      border-radius: 14px;
-      background: #f0f7ff;
-      color: #0b315d;
+    .selection-card p {
+      margin: 0 0 24px;
+      color: var(--muted);
       font-size: 1.05rem;
-      font-weight: 800;
     }
-    .phrase:hover { background: #cfe8ff; }
-    .quick { min-height: 82px; text-align: left; }
-    .custom-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-    .custom-row input {
-      flex: 1 1 220px;
-      min-height: 50px;
-      padding: 10px 12px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .option-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px;
+      padding: 24px;
+      border: 3px solid var(--border);
+      border-radius: 14px;
       background: var(--surface);
-    }
-
-    dialog {
-      width: min(760px, calc(100% - 28px));
-      max-height: 88vh;
-      padding: 0;
-      border: 0;
-      border-radius: 18px;
       color: var(--text);
-      background: var(--surface);
-      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      text-align: center;
+      transition: all 0.2s ease;
     }
-    dialog::backdrop { background: rgba(0,0,0,.64); }
-    .dialog-content { padding: 22px; }
-    .dialog-title { margin-top: 0; }
-    .dialog-footer { display: flex; justify-content: flex-end; margin-top: 18px; }
-    .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; }
-    .profile-card { min-height: 142px; padding: 16px; text-align: left; border: 2px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); }
-    .profile-card:hover { border-color: var(--primary); background: #eef6ff; }
-    .profile-card strong, .profile-card span { display: block; }
-    .profile-card span:first-child { font-size: 2rem; }
-    .profile-card small { color: var(--muted); }
-    .setting { display: flex; align-items: center; gap: 12px; margin: 14px 0; font-weight: 700; }
-    .setting input { width: 24px; height: 24px; }
 
-    .help-card { text-align: center; background: var(--danger); color: #fff; }
-    .help-card h2 { font-size: clamp(1.7rem, 5vw, 3rem); margin: 10px 0; }
-    .help-card .number { font-size: clamp(1.5rem, 5vw, 2.6rem); font-weight: 900; letter-spacing: .05em; }
-    .help-card p { color: #fff; }
-    .help-card .button { background: #fff; color: #7f1d1d; border-color: #fff; }
+    .option-card:hover,
+    .option-card:focus {
+      border-color: var(--primary);
+      background: #eaf3ff;
+      transform: translateY(-4px);
+    }
 
-    .status { min-height: 24px; margin-top: 14px; font-weight: 700; color: var(--primary-dark); }
-    footer { max-width: 1280px; margin: 12px auto 0; padding: 22px 36px; color: var(--muted); }
+    .option-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+
+    .option-card strong {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .option-card small {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+
+    .option-card button {
+      margin-top: 16px;
+      padding: 12px 24px;
+      border: 2px solid var(--primary);
+      border-radius: 10px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .option-card button:hover,
+    .option-card button:focus {
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
 
     .high-contrast {
       --bg: #000;
@@ -192,298 +165,90 @@
       --border: #fff;
       --primary: #00a8ff;
       --primary-dark: #78ccff;
-      --danger: #ff1f1f;
-      --danger-dark: #ff7373;
       --focus: #ffff00;
-      --shadow: none;
     }
-    .high-contrast .phrase { color: #fff; background: #111; border-color: #fff; }
-    .high-contrast .notice { color: #fff; background: #111; border-color: #ffff00; }
-    .large-text { --font-size: 20px; }
-    .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 
-    @media (max-width: 680px) {
-      .topbar { align-items: flex-start; flex-direction: column; }
-      .emergency-row { grid-template-columns: 1fr; }
-      .top-actions { width: 100%; }
-      .top-actions .button { flex: 1; }
+    .large-text { --font-size: 20px; }
+
+    @media (max-width: 600px) {
+      .options-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
 
-  <header class="topbar">
-    <div class="brand" aria-label="AccessAble home">
-      <span class="brand-mark" aria-hidden="true">♿</span>
-      <div>
-        <h1>AccessAble</h1>
-        <p>Communication and safety dashboard</p>
-      </div>
-    </div>
-    <nav class="top-actions" aria-label="Dashboard controls">
-      <button class="button" id="profilesButton" type="button">👤 Profiles</button>
-      <button class="button" id="settingsButton" type="button">⚙️ Settings</button>
-      <button class="button" id="helpButton" type="button">❓ Help</button>
-    </nav>
-  </header>
+  <div class="container">
+    <header>
+      <h1>♿ AccessAble</h1>
+      <p>Personalised accessibility support starts here</p>
+    </header>
 
-  <main id="main-content">
-    <section class="intro" aria-labelledby="welcome-heading">
-      <h2 id="welcome-heading">Personalised support in one place</h2>
-      <p>Select a profile or adjust the modules and display settings for each person’s needs.</p>
-    </section>
+    <main id="main-content">
+      <section class="selection-card" aria-labelledby="select-heading">
+        <h2 id="select-heading">Select Your Primary Need</h2>
+        <p>Choose the option that best describes your needs. We'll customise the dashboard for you.</p>
 
-    <div class="dashboard">
-      <section class="module wide emergency-module" id="emergencyModule" aria-labelledby="emergencyHeading">
-        <h2 id="emergencyHeading">🚨 Emergency support</h2>
-        <div class="emergency-row">
-          <button class="emergency-button" id="emergencyButton" type="button" aria-expanded="false">
-            🆘 EMERGENCY
-            <span>Tap for urgent help options</span>
-          </button>
-          <div>
-            <p><strong>Emergency contact:</strong> <span id="contactDisplay">8891072007</span></p>
-            <div id="emergencyActions" class="emergency-actions" hidden>
-              <a class="button danger" id="callLink" href="tel:8891072007">📞 Call 8891072007</a>
-              <button class="button primary" id="alertButton" type="button">📱 Prepare emergency SMS</button>
-              <button class="button" id="helpCardButton" type="button">🪧 Show help card</button>
-            </div>
-            <p class="notice">For a life-threatening emergency, contact local emergency services immediately. This site only opens your phone or SMS app; it cannot guarantee that an alert was sent.</p>
+        <div class="options-grid" role="list">
+          <!-- Option 1: Blind -->
+          <div class="option-card" role="listitem">
+            <span class="option-icon" aria-hidden="true">👁️</span>
+            <strong>Blind</strong>
+            <small>Visual impairment: Partial or total loss of sight</small>
+            <button type="button" data-profile="blind">Select Blind</button>
+          </div>
+
+          <!-- Option 2: Deaf -->
+          <div class="option-card" role="listitem">
+            <span class="option-icon" aria-hidden="true">👂</span>
+            <strong>Deaf</strong>
+            <small>Hearing impairment: Partial hearing loss or total deafness</small>
+            <button type="button" data-profile="deaf">Select Deaf</button>
+          </div>
+
+          <!-- Option 3: Mute / Nonverbal -->
+          <div class="option-card" role="listitem">
+            <span class="option-icon" aria-hidden="true">🗣️</span>
+            <strong>Mute / Nonverbal</strong>
+            <small>Speech impairment: Difficulty or inability to speak</small>
+            <button type="button" data-profile="mute">Select Mute / Nonverbal</button>
           </div>
         </div>
       </section>
+    </main>
 
-      <section class="module" id="communicationModule" aria-labelledby="communicationHeading">
-        <h2 id="communicationHeading">💬 Communication board</h2>
-        <p>Tap a phrase to speak it aloud.</p>
-        <div class="phrase-grid" aria-label="Quick communication phrases">
-          <button class="phrase" type="button" data-phrase="I need help">I need help</button>
-          <button class="phrase" type="button" data-phrase="I need water">I need water</button>
-          <button class="phrase" type="button" data-phrase="I need food">I need food</button>
-          <button class="phrase" type="button" data-phrase="I need medicine">I need medicine</button>
-          <button class="phrase" type="button" data-phrase="I am in pain">I am in pain</button>
-          <button class="phrase" type="button" data-phrase="I need the bathroom">I need the bathroom</button>
-          <button class="phrase" type="button" data-phrase="Yes">Yes</button>
-          <button class="phrase" type="button" data-phrase="No">No</button>
-          <button class="phrase" type="button" data-phrase="Thank you">Thank you</button>
-          <button class="phrase" type="button" data-phrase="I am tired">I am tired</button>
-          <button class="phrase" type="button" data-phrase="എനിക്ക് സഹായം വേണം">എനിക്ക് സഹായം വേണം</button>
-          <button class="phrase" type="button" data-phrase="എനിക്ക് വെള്ളം വേണം">എനിക്ക് വെള്ളം വേണം</button>
-        </div>
-        <div class="custom-row">
-          <label class="sr-only" for="customPhrase">Custom phrase</label>
-          <input id="customPhrase" type="text" placeholder="Type a custom phrase" />
-          <button class="button primary" id="speakButton" type="button">🔊 Speak</button>
-        </div>
-      </section>
-
-      <section class="module" id="quickModule" aria-labelledby="quickHeading">
-        <h2 id="quickHeading">⚡ Quick actions</h2>
-        <div class="quick-grid">
-          <a class="button quick" id="caregiverLink" href="tel:8891072007">📞 Call contact</a>
-          <button class="button quick" id="locationButton" type="button">📍 Share location</button>
-          <button class="button quick" id="largePhraseButton" type="button">🗣️ Show “I need help”</button>
-          <button class="button quick" id="stopSpeechButton" type="button">⏹ Stop speaking</button>
-        </div>
-        <p class="status" id="status" role="status" aria-live="polite"></p>
-      </section>
-
-      <section class="module" id="infoModule" aria-labelledby="infoHeading">
-        <h2 id="infoHeading">ℹ️ How to use</h2>
-        <ul>
-          <li>Use Profiles for disability-specific presets.</li>
-          <li>Use Settings for text size, contrast, motion, and module controls.</li>
-          <li>Use the Communication Board to speak essential phrases.</li>
-          <li>Use Emergency only for urgent situations.</li>
-        </ul>
-      </section>
-    </div>
-  </main>
-
-  <dialog id="profilesDialog" aria-labelledby="profilesTitle">
-    <div class="dialog-content">
-      <h2 class="dialog-title" id="profilesTitle">Choose an accessibility profile</h2>
-      <div class="profile-grid">
-        <button class="profile-card" type="button" data-profile="default"><span>🏠</span><strong>Default</strong><small>Balanced dashboard</small></button>
-        <button class="profile-card" type="button" data-profile="lowVision"><span>👁️</span><strong>Low vision</strong><small>Large text and high contrast</small></button>
-        <button class="profile-card" type="button" data-profile="communication"><span>💬</span><strong>Communication</strong><small>AAC and text-to-speech focus</small></button>
-        <button class="profile-card" type="button" data-profile="motor"><span>✋</span><strong>Motor support</strong><small>Large text and reduced motion</small></button>
-        <button class="profile-card" type="button" data-profile="cognitive"><span>🧠</span><strong>Cognitive support</strong><small>Simple, low-distraction layout</small></button>
-        <button class="profile-card" type="button" data-profile="hearing"><span>👂</span><strong>Deaf / HoH</strong><small>Text and visual support</small></button>
-      </div>
-      <div class="dialog-footer"><button class="button" data-close="profilesDialog" type="button">Close</button></div>
-    </div>
-  </dialog>
-
-  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
-    <div class="dialog-content">
-      <h2 class="dialog-title" id="settingsTitle">Settings</h2>
-      <label class="setting"><input id="contrastToggle" type="checkbox" /> High-contrast mode</label>
-      <label class="setting"><input id="textToggle" type="checkbox" /> Large text</label>
-      <label class="setting"><input id="motionToggle" type="checkbox" /> Reduce motion</label>
-      <hr />
-      <h3>Visible modules</h3>
-      <label class="setting"><input id="communicationToggle" type="checkbox" checked /> Communication board</label>
-      <label class="setting"><input id="quickToggle" type="checkbox" checked /> Quick actions</label>
-      <label class="setting"><input id="infoToggle" type="checkbox" checked /> How to use</label>
-      <p>The Emergency module remains available for safety.</p>
-      <div class="dialog-footer"><button class="button primary" data-close="settingsDialog" type="button">Save and close</button></div>
-    </div>
-  </dialog>
-
-  <dialog id="helpCardDialog" aria-labelledby="helpCardTitle">
-    <div class="dialog-content help-card">
-      <h2 id="helpCardTitle">🆘 I NEED HELP</h2>
-      <p>Please call this emergency contact:</p>
-      <p class="number">8891072007</p>
-      <p id="locationText">Location: requesting permission…</p>
-      <div class="dialog-footer"><button class="button" data-close="helpCardDialog" type="button">Close</button></div>
-    </div>
-  </dialog>
-
-  <dialog id="messageDialog" aria-labelledby="messageTitle">
-    <div class="dialog-content">
-      <h2 id="messageTitle">Large message</h2>
-      <p id="largeMessage" style="font-size: clamp(2rem, 8vw, 5rem); font-weight: 900; text-align: center;">I NEED HELP</p>
-      <div class="dialog-footer"><button class="button" data-close="messageDialog" type="button">Close</button></div>
-    </div>
-  </dialog>
-
-  <footer>AccessAble dashboard. Your settings are stored only in this browser.</footer>
+    <footer>
+      <p>Your selection will customise the dashboard for your specific needs.</p>
+    </footer>
+  </div>
 
   <script>
-    const EMERGENCY_CONTACT = "8891072007";
-    const state = JSON.parse(localStorage.getItem("accessAbleState") || "{}") || {};
-    const defaults = {
-      highContrast: false,
-      largeText: false,
-      reduceMotion: false,
-      communication: true,
-      quick: true,
-      info: true
-    };
-    Object.assign(defaults, state);
-
-    const $ = (id) => document.getElementById(id);
-    const status = $("status");
-    const setStatus = (message) => { status.textContent = message; };
-    const save = () => localStorage.setItem("accessAbleState", JSON.stringify(defaults));
-
-    function render() {
-      document.body.classList.toggle("high-contrast", defaults.highContrast);
-      document.body.classList.toggle("large-text", defaults.largeText);
-      document.body.classList.toggle("reduce-motion", defaults.reduceMotion);
-      $("communicationModule").hidden = !defaults.communication;
-      $("quickModule").hidden = !defaults.quick;
-      $("infoModule").hidden = !defaults.info;
-      $("contrastToggle").checked = defaults.highContrast;
-      $("textToggle").checked = defaults.largeText;
-      $("motionToggle").checked = defaults.reduceMotion;
-      $("communicationToggle").checked = defaults.communication;
-      $("quickToggle").checked = defaults.quick;
-      $("infoToggle").checked = defaults.info;
-      save();
-    }
-
-    function speak(text) {
-      if (!("speechSynthesis" in window)) {
-        setStatus("Text-to-speech is not supported in this browser.");
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.lang = /[\u0D00-\u0D7F]/.test(text) ? "ml-IN" : "en-IN";
-      window.speechSynthesis.speak(utterance);
-      setStatus("Speaking: " + text);
-    }
-
-    function applyProfile(name) {
-      const profiles = {
-        default: { highContrast: false, largeText: false, reduceMotion: false, communication: true, quick: true, info: true },
-        lowVision: { highContrast: true, largeText: true, reduceMotion: false, communication: true, quick: true, info: true },
-        communication: { highContrast: false, largeText: true, reduceMotion: false, communication: true, quick: false, info: false },
-        motor: { highContrast: false, largeText: true, reduceMotion: true, communication: true, quick: true, info: false },
-        cognitive: { highContrast: false, largeText: true, reduceMotion: true, communication: true, quick: false, info: true },
-        hearing: { highContrast: true, largeText: false, reduceMotion: true, communication: true, quick: true, info: true }
-      };
-      Object.assign(defaults, profiles[name]);
-      render();
-      $("profilesDialog").close();
-      setStatus("Profile applied.");
-    }
-
-    $("profilesButton").addEventListener("click", () => $("profilesDialog").showModal());
-    $("settingsButton").addEventListener("click", () => $("settingsDialog").showModal());
-    $("helpButton").addEventListener("click", () => {
-      alert("Use Profiles to choose a preset. Use Settings to customise the display. Tap a communication phrase to speak it. Tap Emergency for call, SMS, and a help card.");
-    });
-
-    document.querySelectorAll("[data-close]").forEach(button => {
-      button.addEventListener("click", () => $(button.dataset.close).close());
-    });
+    // Store selection and redirect to dashboard
     document.querySelectorAll("[data-profile]").forEach(button => {
-      button.addEventListener("click", () => applyProfile(button.dataset.profile));
+      button.addEventListener("click", () => {
+        const profile = button.dataset.profile;
+        localStorage.setItem("accessAbleProfile", profile);
+
+        // Show confirmation
+        const profileNames = {
+          blind: "Blind",
+          deaf: "Deaf",
+          mute: "Mute / Nonverbal"
+        };
+
+        alert("Selected: " + profileNames[profile] + "\n\nLoading your customised dashboard...");
+
+        // In a real app, you would redirect to the dashboard
+        // For now, we'll just log it
+        console.log("Profile selected:", profile);
+
+        // You can redirect to dashboard.html here
+        // window.location.href = "dashboard.html";
+      });
     });
-
-    [
-      ["contrastToggle", "highContrast"], ["textToggle", "largeText"], ["motionToggle", "reduceMotion"],
-      ["communicationToggle", "communication"], ["quickToggle", "quick"], ["infoToggle", "info"]
-    ].forEach(([id, key]) => $(id).addEventListener("change", e => { defaults[key] = e.target.checked; render(); }));
-
-    $("emergencyButton").addEventListener("click", () => {
-      const actions = $("emergencyActions");
-      actions.hidden = !actions.hidden;
-      $("emergencyButton").setAttribute("aria-expanded", String(!actions.hidden));
-      if (!actions.hidden) $("callLink").focus();
-    });
-
-    $("alertButton").addEventListener("click", () => {
-      const message = encodeURIComponent("EMERGENCY: I need immediate help. Please call me or contact " + EMERGENCY_CONTACT + ".");
-      window.location.href = "sms:" + EMERGENCY_CONTACT + "?body=" + message;
-    });
-
-    $("helpCardButton").addEventListener("click", () => {
-      $("helpCardDialog").showModal();
-      const output = $("locationText");
-      output.textContent = "Location: requesting permission…";
-      if (!navigator.geolocation) {
-        output.textContent = "Location: not supported by this browser.";
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        p => output.textContent = `Location: https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`,
-        () => output.textContent = "Location: unavailable or permission was not granted.",
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-    });
-
-    document.querySelectorAll(".phrase").forEach(button => button.addEventListener("click", () => speak(button.dataset.phrase)));
-    $("speakButton").addEventListener("click", () => {
-      const text = $("customPhrase").value.trim();
-      if (text) speak(text);
-      else setStatus("Type a phrase first.");
-    });
-    $("customPhrase").addEventListener("keydown", e => { if (e.key === "Enter") $("speakButton").click(); });
-    $("stopSpeechButton").addEventListener("click", () => { window.speechSynthesis?.cancel(); setStatus("Speech stopped."); });
-    $("largePhraseButton").addEventListener("click", () => { $("largeMessage").textContent = "I NEED HELP"; $("messageDialog").showModal(); });
-
-    $("locationButton").addEventListener("click", () => {
-      if (!navigator.geolocation) return setStatus("Location is not supported by this browser.");
-      setStatus("Requesting location permission…");
-      navigator.geolocation.getCurrentPosition(
-        p => {
-          const url = `https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`;
-          const message = encodeURIComponent("My location: " + url);
-          window.location.href = "sms:" + EMERGENCY_CONTACT + "?body=" + message;
-        },
-        () => setStatus("Could not get location. Please allow location permission."),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-    });
-
-    render();
   </script>
 </body>
 </html>
+
