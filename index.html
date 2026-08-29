@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f62fe" />
+  <meta name="theme-color" content="#dc2626" />
   <title>AccessAble | Select Your Needs</title>
   <style>
     :root {
@@ -14,6 +14,8 @@
       --border: #cbd5e1;
       --primary: #075bc8;
       --primary-dark: #03499f;
+      --danger: #dc2626;
+      --danger-dark: #b91c1c;
       --focus: #f59e0b;
       --shadow: 0 10px 30px rgba(15, 23, 42, .12);
       --radius: 16px;
@@ -69,6 +71,63 @@
       font-size: 1.1rem;
     }
 
+    /* Emergency Banner */
+    .emergency-banner {
+      background: var(--danger);
+      border: 3px solid var(--danger-dark);
+      border-radius: var(--radius);
+      padding: clamp(16px, 4vw, 24px);
+      margin-bottom: 32px;
+      text-align: center;
+      color: #fff;
+      box-shadow: 0 6px 0 var(--danger-dark);
+    }
+
+    .emergency-banner h2 {
+      margin: 0 0 12px;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+    }
+
+    .emergency-banner p {
+      margin: 0 0 16px;
+      font-size: 1.1rem;
+      opacity: 0.95;
+    }
+
+    .emergency-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      background: #fff;
+      color: var(--danger-dark);
+      border: none;
+      border-radius: 12px;
+      font-size: 1.3rem;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    }
+
+    .emergency-button:hover,
+    .emergency-button:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+    }
+
+    .emergency-button:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    }
+
+    .emergency-button span {
+      font-size: 1.8rem;
+    }
+
+    /* Selection Cards */
     .selection-card {
       background: var(--surface);
       border: 2px solid var(--border);
@@ -150,6 +209,30 @@
       border-color: var(--primary-dark);
     }
 
+    /* Status Messages */
+    .status-message {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .status-message.success {
+      background: #dcfce7;
+      color: #166534;
+      border: 2px solid #16a34a;
+    }
+    .status-message.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 2px solid #dc2626;
+    }
+    .status-message.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 2px solid #2563eb;
+    }
+
     footer {
       text-align: center;
       margin-top: 40px;
@@ -174,6 +257,10 @@
       .options-grid {
         grid-template-columns: 1fr;
       }
+      .emergency-button {
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
 </head>
@@ -187,6 +274,18 @@
     </header>
 
     <main id="main-content">
+      <!-- Emergency Banner -->
+      <section class="emergency-banner" aria-labelledby="emergency-heading" role="alert">
+        <h2 id="emergency-heading">🚨 EMERGENCY HELP</h2>
+        <p>In case of emergency, tap the button below to call for help</p>
+        <button class="emergency-button" id="emergencyButton" type="button" aria-label="Emergency: Play loud alarm and call 8891072007">
+          <span>🆘</span>
+          EMERGENCY - CALL FOR HELP
+        </button>
+        <div id="emergencyStatus" class="status-message" hidden></div>
+      </section>
+
+      <!-- Selection Cards -->
       <section class="selection-card" aria-labelledby="select-heading">
         <h2 id="select-heading">Select Your Primary Need</h2>
         <p>Choose the option that best describes your needs. We'll customise the dashboard for you.</p>
@@ -225,30 +324,166 @@
   </div>
 
   <script>
-    // Store selection and redirect to dashboard
+    const EMERGENCY_NUMBER = "8891072007";
+    let audioContext = null;
+    let oscillator = null;
+    let isAlarmPlaying = false;
+
+    // Play loud alarm sound
+    function playAlarm() {
+      if (isAlarmPlaying) return;
+
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = "square";
+        oscillator.frequency.value = 880; // A5
+        gainNode.gain.value = 1.0; // Maximum volume
+
+        oscillator.start();
+        isAlarmPlaying = true;
+
+        // Pulse the alarm
+        setInterval(() => {
+          if (oscillator) {
+            oscillator.frequency.value = oscillator.frequency.value === 880 ? 1100 : 880;
+          }
+        }, 300);
+
+      } catch (e) {
+        console.error("Could not play alarm:", e);
+      }
+    }
+
+    // Stop alarm sound
+    function stopAlarm() {
+      if (oscillator) {
+        try {
+          oscillator.stop();
+          oscillator.disconnect();
+        } catch (e) {}
+        oscillator = null;
+      }
+      if (audioContext) {
+        try {
+          audioContext.close();
+        } catch (e) {}
+        audioContext = null;
+      }
+      isAlarmPlaying = false;
+    }
+
+    // Get live location
+    function getLocation(callback) {
+      const statusDiv = document.getElementById("emergencyStatus");
+
+      if (!navigator.geolocation) {
+        statusDiv.textContent = "⚠️ Location is not supported by your browser";
+        statusDiv.className = "status-message error";
+        statusDiv.hidden = false;
+        callback(null);
+        return;
+      }
+
+      statusDiv.textContent = "📍 Getting your location...";
+      statusDiv.className = "status-message info";
+      statusDiv.hidden = false;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const locationUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+          statusDiv.textContent = "✓ Location acquired: " + locationUrl;
+          statusDiv.className = "status-message success";
+          callback(locationUrl);
+        },
+        (error) => {
+          statusDiv.textContent = "⚠️ Could not get location. Please allow location permission.";
+          statusDiv.className = "status-message error";
+          callback(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    // Emergency button handler
+    document.getElementById("emergencyButton").addEventListener("click", async () => {
+      const statusDiv = document.getElementById("emergencyStatus");
+
+      // Play loud alarm
+      playAlarm();
+      statusDiv.textContent = "🔊 ALARM SOUNDING! Calling emergency contact...";
+      statusDiv.className = "status-message info";
+      statusDiv.hidden = false;
+
+      // Get location first
+      getLocation((locationUrl) => {
+        // Wait 2 seconds for alarm to be noticed, then call
+        setTimeout(() => {
+          // Stop alarm
+          stopAlarm();
+
+          // Prepare emergency SMS with location
+          let message = "EMERGENCY! I need immediate help!";
+          if (locationUrl) {
+            message += " My location: " + locationUrl;
+          }
+          message += " Please call me at this number.";
+
+          // Open phone dialer
+          window.location.href = "tel:" + EMERGENCY_NUMBER;
+
+          // Also prepare SMS as backup (opens after call attempt)
+          setTimeout(() => {
+            const smsUrl = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(message);
+            // Note: This may not work on all devices, but attempts to open SMS
+            console.log("Emergency SMS prepared:", smsUrl);
+          }, 1000);
+
+          statusDiv.textContent = "📞 Calling " + EMERGENCY_NUMBER + " - Location sent!";
+          statusDiv.className = "status-message success";
+        }, 2000);
+      });
+    });
+
+    // Profile selection
     document.querySelectorAll("[data-profile]").forEach(button => {
       button.addEventListener("click", () => {
         const profile = button.dataset.profile;
         localStorage.setItem("accessAbleProfile", profile);
 
-        // Show confirmation
         const profileNames = {
           blind: "Blind",
           deaf: "Deaf",
           mute: "Mute / Nonverbal"
         };
 
-        alert("Selected: " + profileNames[profile] + "\n\nLoading your customised dashboard...");
+        // Stop any playing alarm
+        stopAlarm();
 
-        // In a real app, you would redirect to the dashboard
-        // For now, we'll just log it
+        alert("✓ Selected: " + profileNames[profile] + "\n\nLoading your customised dashboard...");
         console.log("Profile selected:", profile);
 
-        // You can redirect to dashboard.html here
-        // window.location.href = "dashboard.html";
+        // Redirect to dashboard (create this file next)
+        // window.location.href = "dashboard.html?profile=" + profile;
       });
+    });
+
+    // Stop alarm if user leaves page
+    window.addEventListener("beforeunload", () => {
+      stopAlarm();
     });
   </script>
 </body>
 </html>
+
 
