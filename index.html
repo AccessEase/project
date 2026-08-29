@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Symbol Communication Board</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f9; text-align: center; }
+    
+    /* Sentence Bar */
+    #sentence-bar {
+      min-height: 80px; background: #fff; border: 3px solid #333;
+      border-radius: 12px; display: flex; align-items: center;
+      justify-content: flex-start; padding: 10px; gap: 10px; margin-bottom: 20px;
+    }
+    
+    /* Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; }
+    
+    /* Symbol Card */
+    .card {
+      background: #fff; border: 2px solid #ccc; border-radius: 10px;
+      padding: 15px; cursor: pointer; text-align: center; user-select: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .card:focus, .card:hover { border-color: #007bff; outline: 3px solid #007bff; }
+    .card img { width: 50px; height: 50px; display: block; margin: 0 auto 8px; }
+    .card span { font-size: 1.1rem; font-weight: bold; }
+    
+    /* Fitzgerald Color Schemes */
+    .verb { background-color: #ffe6e6; }
+    .noun { background-color: #fff9e6; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Output Bar -->
+  <div id="sentence-bar" aria-live="polite"></div>
+  <button onclick="speakSentence()" style="padding: 10px 20px; font-size: 1.2rem; cursor: pointer;">🔊 Speak All</button>
+  <button onclick="clearSentence()" style="padding: 10px 20px; font-size: 1.2rem; cursor: pointer;">❌ Clear</button>
+
+  <h2 style="margin-top: 30px;">Tap a Symbol</h2>
+  
+  <!-- Symbol Grid -->
+  <div class="grid">
+    <button class="card verb" onclick="addWord('Want', 'https://api.iconify.design/fluent-emoji-flat:backhand-index-pointing-right.svg')">
+      <img src="https://api.iconify.design/fluent-emoji-flat:backhand-index-pointing-right.svg" alt="" />
+      <span>Want</span>
+    </button>
+    <button class="card verb" onclick="addWord('Drink', 'https://api.iconify.design/fluent-emoji-flat:tropical-drink.svg')">
+      <img src="https://api.iconify.design/fluent-emoji-flat:tropical-drink.svg" alt="" />
+      <span>Drink</span>
+    </button>
+    <button class="card noun" onclick="addWord('Water', 'https://api.iconify.design/fluent-emoji-flat:potable-water.svg')">
+      <img src="https://api.iconify.design/fluent-emoji-flat:potable-water.svg" alt="" />
+      <span>Water</span>
+    </button>
+  </div>
+
+  <script>
+    let sentence = [];
+
+    function addWord(word, iconUrl) {
+      sentence.push(word);
+      
+      // Speak single word immediately on tap
+      speakText(word);
+
+      // Render image in top sentence bar
+      const bar = document.getElementById('sentence-bar');
+      const item = document.createElement('div');
+      item.className = 'card';
+      item.innerHTML = `<img src="${iconUrl}" alt="" /><span>${word}</span>`;
+      bar.appendChild(item);
+    }
+
+    function speakText(text) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function speakSentence() {
+      if (sentence.length > 0) {
+        speakText(sentence.join(' '));
+      }
+    }
+
+    function clearSentence() {
+      sentence = [];
+      document.getElementById('sentence-bar').innerHTML = '';
+    }
+  </script>
+</body>
+</html>
