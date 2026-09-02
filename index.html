@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AccessAble – Deaf + Camera</title>
+  <meta name="theme-color" content="#075bc8" />
+  <title>AccessAble | Accessibility Support</title>
 
   <style>
     :root {
@@ -14,62 +15,341 @@
       --border: #cbd5e1;
       --primary: #075bc8;
       --primary-dark: #03499f;
+      --danger: #dc2626;
+      --danger-dark: #b91c1c;
+      --success: #15803d;
       --focus: #f59e0b;
-      --radius: 16px;
       --shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+      --radius: 16px;
+      --font-size: 16px;
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html {
+      font-size: var(--font-size);
+    }
+
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
       line-height: 1.5;
     }
 
-    button {
+    button,
+    input {
       font: inherit;
+    }
+
+    button {
       cursor: pointer;
     }
 
-    button:focus-visible {
+    button:focus-visible,
+    input:focus-visible {
       outline: 4px solid var(--focus);
       outline-offset: 3px;
     }
 
+    [hidden] {
+      display: none !important;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: -80px;
+      left: 12px;
+      z-index: 3000;
+      padding: 12px 16px;
+      color: #fff;
+      background: var(--primary);
+      border-radius: 10px;
+    }
+
+    .skip-link:focus {
+      top: 12px;
+    }
+
     .container {
-      width: min(900px, 92%);
-      margin: auto;
-      padding: 28px 0 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: clamp(22px, 5vw, 48px);
     }
 
     header {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
 
     header h1 {
       margin: 0 0 8px;
-      font-size: clamp(1.6rem, 5vw, 2.2rem);
       color: var(--primary);
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
     }
 
     header p {
       margin: 0;
       color: var(--muted);
+      font-size: 1.1rem;
     }
 
-    .card {
+    .emergency-banner {
+      margin-bottom: 28px;
+      padding: clamp(16px, 4vw, 24px);
+      color: #fff;
+      background: var(--danger);
+      border: 3px solid var(--danger-dark);
+      border-radius: var(--radius);
+      box-shadow: 0 6px 0 var(--danger-dark);
+      text-align: center;
+    }
+
+    .emergency-banner h2 {
+      margin: 0 0 10px;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+    }
+
+    .emergency-banner p {
+      margin: 0 0 16px;
+      font-size: 1.05rem;
+    }
+
+    .emergency-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px 32px;
+      color: var(--danger-dark);
+      background: #fff;
+      border: 0;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 900;
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .emergency-button:hover,
+    .emergency-button:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .selection-card,
+    .dashboard {
+      padding: clamp(20px, 4vw, 34px);
       background: var(--surface);
       border: 2px solid var(--border);
       border-radius: var(--radius);
-      padding: 22px;
       box-shadow: var(--shadow);
+    }
+
+    .selection-card h2,
+    .dashboard h2 {
+      margin: 0 0 10px;
+    }
+
+    .selection-card > p {
+      margin: 0 0 22px;
+      color: var(--muted);
+    }
+
+    .options-grid,
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
+      gap: 16px;
+    }
+
+    .option-card,
+    .tool-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px;
+      padding: 22px;
+      background: var(--surface);
+      border: 3px solid var(--border);
+      border-radius: 14px;
+      color: var(--text);
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .option-card:hover,
+    .option-card:focus-within {
+      background: #eaf3ff;
+      border-color: var(--primary);
+      transform: translateY(-4px);
+    }
+
+    .option-icon,
+    .tool-icon {
+      margin-bottom: 12px;
+      font-size: 3.7rem;
+    }
+
+    .option-card strong,
+    .tool-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 1.35rem;
+    }
+
+    .option-card small,
+    .tool-card small {
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.4;
+    }
+
+    .button {
+      min-height: 48px;
+      padding: 11px 16px;
+      color: var(--text);
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-weight: 800;
+    }
+
+    .button.primary {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .button.primary:hover {
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
+    }
+
+    .option-card .button {
+      margin-top: 16px;
+    }
+
+    .dashboard-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .dashboard-head p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .tool-card {
+      min-height: 180px;
+      justify-content: flex-start;
+    }
+
+    .tool-card .button {
+      width: 100%;
+      margin-top: 16px;
+    }
+
+    .phrase-box {
+      grid-column: 1 / -1;
+      align-items: stretch;
+      text-align: left;
+    }
+
+    .phrase-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .phrase {
+      min-height: 70px;
+      padding: 10px;
+      color: #0b315d;
+      background: #edf6ff;
+      border: 2px solid var(--primary);
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .phrase:hover {
+      background: #cfe8ff;
+    }
+
+    .custom-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      width: 100%;
+      margin-top: 14px;
+    }
+
+    .custom-row input {
+      flex: 1 1 220px;
+      min-height: 48px;
+      padding: 10px 12px;
+      color: var(--text);
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .visual-alert {
+      background: #ecfdf3;
+      border-color: var(--success);
+    }
+
+    .status {
+      min-height: 24px;
+      margin: 16px 0 0;
+      color: var(--primary-dark);
+      font-weight: 800;
+    }
+
+    .status-message {
+      margin-top: 16px;
+      padding: 13px;
+      border-radius: 10px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .status-message.success {
+      color: #166534;
+      background: #dcfce7;
+      border: 2px solid #16a34a;
+    }
+
+    .status-message.error {
+      color: #991b1b;
+      background: #fee2e2;
+      border: 2px solid #dc2626;
+    }
+
+    .status-message.info {
+      color: #1e40af;
+      background: #dbeafe;
+      border: 2px solid #2563eb;
+    }
+
+    /* Hand-signal camera */
+    .camera-card {
+      grid-column: 1 / -1;
+      align-items: stretch;
+      text-align: center;
     }
 
     .camera-wrap {
@@ -77,10 +357,10 @@
       width: 100%;
       max-width: 640px;
       margin: 16px auto 0;
+      overflow: hidden;
       background: #111;
       border: 3px solid var(--border);
       border-radius: 14px;
-      overflow: hidden;
     }
 
     #signVideo,
@@ -97,48 +377,27 @@
       pointer-events: none;
     }
 
-    .camera-controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    .button {
-      min-height: 48px;
-      padding: 10px 16px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-      color: var(--text);
-      font-weight: bold;
-    }
-
-    .button.primary {
-      color: #fff;
-      background: var(--primary);
-      border-color: var(--primary);
-    }
-
-    .button.primary:hover {
-      background: var(--primary-dark);
-      border-color: var(--primary-dark);
-    }
-
     .sign-result {
       max-width: 640px;
       margin: 16px auto 0;
       padding: 14px;
+      color: #0b315d;
       background: #edf6ff;
       border: 2px solid var(--primary);
       border-radius: 10px;
-      color: #0b315d;
       font-weight: bold;
       text-align: center;
     }
 
-    .note {
+    .camera-controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .camera-note {
       max-width: 640px;
       margin: 16px auto 0;
       color: var(--muted);
@@ -146,76 +405,302 @@
       text-align: center;
     }
 
+    footer {
+      margin-top: 34px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-align: center;
+    }
+
+    .high-contrast {
+      --bg: #000;
+      --surface: #000;
+      --text: #fff;
+      --muted: #fff;
+      --border: #fff;
+      --primary: #00a8ff;
+      --primary-dark: #78ccff;
+      --focus: #ffff00;
+      --shadow: none;
+    }
+
+    .high-contrast .phrase,
+    .high-contrast .sign-result {
+      color: #fff;
+      background: #111;
+      border-color: #fff;
+    }
+
+    .large-text {
+      --font-size: 20px;
+    }
+
     @media (max-width: 600px) {
-      .camera-controls {
-        flex-direction: column;
+      .options-grid,
+      .tool-grid {
+        grid-template-columns: 1fr;
       }
 
-      .button {
+      .emergency-button,
+      .camera-controls .button {
         width: 100%;
+      }
+
+      .camera-controls {
+        flex-direction: column;
       }
     }
   </style>
 
-  <!-- MediaPipe for hand tracking -->
+  <!-- MediaPipe libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head>
 
 <body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
   <div class="container">
     <header>
-      <h1>AccessAble – Deaf Profile</h1>
-      <p>Simple hand-signal to voice (prototype, not full sign language)</p>
+      <h1>♿ AccessAble</h1>
+      <p>Communication, accessibility, and emergency support</p>
     </header>
 
-    <section class="card">
-      <h2 style="text-align:center;">Hand Signal to Voice</h2>
-      <p style="text-align:center;">
-        Start the camera, then show these signals:
-        open palm = “Hello”, fist = “Help me”,
-        thumbs up = “Yes”, thumbs down = “No”.
-      </p>
+    <main id="main-content">
+      <section class="emergency-banner" aria-labelledby="emergency-heading">
+        <h2 id="emergency-heading">🚨 EMERGENCY HELP</h2>
+        <p>
+          Plays an alarm, requests location permission, and opens a call to
+          8891072007.
+        </p>
 
-      <div class="camera-wrap">
-        <video id="signVideo" autoplay playsinline muted></video>
-        <canvas id="signCanvas"></canvas>
-      </div>
-
-      <p id="signResult" class="sign-result" role="status" aria-live="polite">
-        Camera is off.
-      </p>
-
-      <div class="camera-controls">
-        <button id="startCameraButton" class="button primary" type="button">
-          Start Camera
+        <button
+          class="emergency-button"
+          id="emergencyButton"
+          type="button"
+        >
+          🆘 EMERGENCY - CALL FOR HELP
         </button>
 
-        <button id="stopCameraButton" class="button" type="button">
-          Stop Camera
-        </button>
-      </div>
+        <div id="emergencyStatus" class="status-message" hidden></div>
+      </section>
 
-      <p class="note">
-        For best results, use good lighting and keep one hand clearly visible.
-        This is a simple prototype and not a full sign-language translator.
-      </p>
-    </section>
+      <section
+        class="selection-card"
+        id="selectionSection"
+        aria-labelledby="select-heading"
+      >
+        <h2 id="select-heading">Select Your Primary Need</h2>
+        <p>Choose an option to open tools designed for that need.</p>
+
+        <div class="options-grid" role="list">
+          <div class="option-card" role="listitem">
+            <span class="option-icon" aria-hidden="true">👁️</span>
+            <strong>Blind</strong>
+            <small>
+              Visual impairment: Partial or total loss of sight
+            </small>
+            <button
+              class="button primary"
+              type="button"
+              data-profile="blind"
+            >
+              Select Blind
+            </button>
+          </div>
+
+          <div class="option-card" role="listitem">
+            <span class="option-icon" aria-hidden="true">👂</span>
+            <strong>Deaf</strong>
+            <small>
+              Hearing impairment: Partial hearing loss or total deafness
+            </small>
+            <button
+              class="button primary"
+              type="button"
+              data-profile="deaf"
+            >
+              Select Deaf
+            </button>
+          </div>
+
+          <div class="option-card" role="listitem">
+            <span class="option-icon" aria-hidden="true">🗣️</span>
+            <strong>Mute / Nonverbal</strong>
+            <small>
+              Speech impairment: Difficulty or inability to speak
+            </small>
+            <button
+              class="button primary"
+              type="button"
+              data-profile="mute"
+            >
+              Select Mute / Nonverbal
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="dashboard"
+        id="dashboard"
+        hidden
+        aria-labelledby="dashboardHeading"
+      >
+        <div class="dashboard-head">
+          <div>
+            <h2 id="dashboardHeading">Your Support Tools</h2>
+            <p id="profileDescription"></p>
+          </div>
+
+          <button class="button" id="changeProfile" type="button">
+            Change selection
+          </button>
+        </div>
+
+        <div class="tool-grid" id="toolGrid"></div>
+
+        <p id="toolStatus" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <footer>
+      Your data stays in this browser. Grant location permission only when
+      you need emergency help.
+    </footer>
   </div>
 
   <script>
+    const EMERGENCY_NUMBER = "8891072007";
+
+    let audioContext = null;
+    let oscillator = null;
+    let alarmInterval = null;
+
     let cameraStream = null;
     let handCamera = null;
+    let handsDetector = null;
     let lastDetectedPhrase = "";
     let lastSpokenAt = 0;
 
     const $ = (id) => document.getElementById(id);
 
+    function status(message) {
+      $("toolStatus").textContent = message;
+    }
+
+    /* Emergency alarm */
+    function startAlarm() {
+      try {
+        audioContext = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+
+        oscillator = audioContext.createOscillator();
+
+        const gain = audioContext.createGain();
+
+        oscillator.type = "square";
+        oscillator.frequency.value = 880;
+        gain.gain.value = 0.9;
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start();
+
+        alarmInterval = setInterval(() => {
+          oscillator.frequency.value =
+            oscillator.frequency.value === 880 ? 1100 : 880;
+        }, 300);
+      } catch (error) {
+        console.warn("Alarm could not start.", error);
+      }
+    }
+
+    function stopAlarm() {
+      clearInterval(alarmInterval);
+      alarmInterval = null;
+
+      try {
+        oscillator?.stop();
+        oscillator?.disconnect();
+        audioContext?.close();
+      } catch (error) {
+        console.warn("Alarm cleanup failed.", error);
+      }
+
+      oscillator = null;
+      audioContext = null;
+    }
+
+    function getLocation(callback) {
+      const box = $("emergencyStatus");
+
+      box.hidden = false;
+      box.className = "status-message info";
+      box.textContent = "📍 Getting your live location…";
+
+      if (!navigator.geolocation) {
+        box.className = "status-message error";
+        box.textContent = "Location is not supported by this browser.";
+        callback(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          const url = `https://maps.google.com/?q=${latitude},${longitude}`;
+
+          box.className = "status-message success";
+          box.textContent = "✓ Live location found.";
+
+          callback(url);
+        },
+        () => {
+          box.className = "status-message error";
+          box.textContent =
+            "Location was unavailable or permission was denied.";
+
+          callback(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    $("emergencyButton").addEventListener("click", () => {
+      startAlarm();
+
+      getLocation((locationUrl) => {
+        const message =
+          "EMERGENCY: I need immediate help." +
+          (locationUrl ? " My location: " + locationUrl : "");
+
+        setTimeout(() => {
+          stopAlarm();
+          window.location.href = "tel:" + EMERGENCY_NUMBER;
+        }, 1800);
+
+        console.log(
+          "Emergency SMS backup:",
+          "sms:" +
+            EMERGENCY_NUMBER +
+            "?body=" +
+            encodeURIComponent(message)
+        );
+      });
+    });
+
+    /* Text-to-speech */
     function speak(text) {
       if (!("speechSynthesis" in window)) {
-        $("signResult").textContent =
-          "Text-to-speech is not supported in this browser.";
+        status("Text-to-speech is not supported by this browser.");
         return;
       }
 
@@ -227,7 +712,82 @@
       utterance.lang = "en-IN";
 
       window.speechSynthesis.speak(utterance);
-      $("signResult").textContent = "Speaking: " + text;
+      status("Speaking: " + text);
+    }
+
+    /* Location sharing */
+    function shareLocation() {
+      status("Requesting live location…");
+
+      if (!navigator.geolocation) {
+        status("Location is not supported by this browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          const url = `https://maps.google.com/?q=${latitude},${longitude}`;
+          const message = encodeURIComponent("My live location: " + url);
+
+          window.location.href =
+            "sms:" + EMERGENCY_NUMBER + "?body=" + message;
+        },
+        () => {
+          status("Location unavailable. Please allow location permission.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    /* Hand-signal recognition */
+    function isFingerUp(landmarks, tipIndex, pipIndex) {
+      return landmarks[tipIndex].y < landmarks[pipIndex].y;
+    }
+
+    function recognizeSimpleHandSignal(landmarks) {
+      const thumbUp =
+        landmarks[4].y < landmarks[3].y &&
+        landmarks[4].y < landmarks[2].y;
+
+      const thumbDown =
+        landmarks[4].y > landmarks[3].y &&
+        landmarks[4].y > landmarks[2].y;
+
+      const indexUp = isFingerUp(landmarks, 8, 6);
+      const middleUp = isFingerUp(landmarks, 12, 10);
+      const ringUp = isFingerUp(landmarks, 16, 14);
+      const pinkyUp = isFingerUp(landmarks, 20, 18);
+
+      const raisedFingers = [
+        indexUp,
+        middleUp,
+        ringUp,
+        pinkyUp
+      ].filter(Boolean).length;
+
+      if (raisedFingers === 4) {
+        return "Hello";
+      }
+
+      if (raisedFingers === 0 && !thumbUp && !thumbDown) {
+        return "Help me";
+      }
+
+      if (thumbUp && raisedFingers === 0) {
+        return "Yes";
+      }
+
+      if (thumbDown && raisedFingers === 0) {
+        return "No";
+      }
+
+      return "";
     }
 
     function speakDetectedSignal(phrase) {
@@ -247,49 +807,28 @@
       speak(phrase);
     }
 
-    function isFingerUp(landmarks, tipIndex, pipIndex) {
-      return landmarks[tipIndex].y < landmarks[pipIndex].y;
-    }
-
-    function recognizeSimpleHandSignal(landmarks) {
-      const thumbUp =
-        landmarks[4].y < landmarks[3].y &&
-        landmarks[4].y < landmarks[2].y;
-
-      const thumbDown =
-        landmarks[4].y > landmarks[3].y &&
-        landmarks[4].y > landmarks[2].y;
-
-      const indexUp = isFingerUp(landmarks, 8, 6);
-      const middleUp = isFingerUp(landmarks, 12, 10);
-      const ringUp = isFingerUp(landmarks, 16, 14);
-      const pinkyUp = isFingerUp(landmarks, 20, 18);
-
-      const raisedFingers =
-        [indexUp, middleUp, ringUp, pinkyUp].filter(Boolean).length;
-
-      if (raisedFingers === 4) return "Hello";
-
-      if (raisedFingers === 0 && !thumbUp && !thumbDown) {
-        return "Help me";
-      }
-
-      if (thumbUp && raisedFingers === 0) return "Yes";
-
-      if (thumbDown && raisedFingers === 0) return "No";
-
-      return "";
-    }
-
     async function startSignCamera() {
       const video = $("signVideo");
       const canvas = $("signCanvas");
-      const signResult = $("signResult");
+      const result = $("signResult");
 
-      if (!video || !canvas) return;
+      if (!video || !canvas) {
+        return;
+      }
+
+      if (!window.Hands || !window.Camera) {
+        result.textContent =
+          "Hand-tracking libraries could not be loaded.";
+        return;
+      }
+
+      if (cameraStream) {
+        result.textContent = "Camera is already running.";
+        return;
+      }
 
       try {
-        signResult.textContent = "Requesting camera permission...";
+        result.textContent = "Requesting camera permission…";
 
         cameraStream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -305,20 +844,22 @@
 
         const context = canvas.getContext("2d");
 
-        const hands = new Hands({
+        handsDetector = new Hands({
           locateFile: (file) => {
-            return "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file;
+            return (
+              "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+            );
           }
         });
 
-        hands.setOptions({
+        handsDetector.setOptions({
           maxNumHands: 1,
           modelComplexity: 1,
           minDetectionConfidence: 0.7,
           minTrackingConfidence: 0.7
         });
 
-        hands.onResults((results) => {
+        handsDetector.onResults((results) => {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
 
@@ -332,7 +873,10 @@
               context,
               landmarks,
               HAND_CONNECTIONS,
-              { color: "#00ff88", lineWidth: 4 }
+              {
+                color: "#00ff88",
+                lineWidth: 4
+              }
             );
 
             drawLandmarks(context, landmarks, {
@@ -346,11 +890,11 @@
             if (phrase) {
               speakDetectedSignal(phrase);
             } else {
-              signResult.textContent =
+              result.textContent =
                 "Hand detected. Try open palm, fist, thumbs up, or thumbs down.";
             }
           } else {
-            signResult.textContent =
+            result.textContent =
               "No hand detected. Keep one hand visible to the camera.";
           }
 
@@ -359,7 +903,7 @@
 
         handCamera = new Camera(video, {
           onFrame: async () => {
-            await hands.send({ image: video });
+            await handsDetector.send({ image: video });
           },
           width: 1280,
           height: 720
@@ -367,12 +911,14 @@
 
         handCamera.start();
 
-        signResult.textContent =
+        result.textContent =
           "Camera started. Show a supported hand signal.";
       } catch (error) {
         console.error(error);
 
-        signResult.textContent =
+        cameraStream = null;
+
+        result.textContent =
           "Camera could not start. Allow camera permission and use HTTPS or localhost.";
       }
     }
@@ -388,30 +934,345 @@
         handCamera = null;
       }
 
+      handsDetector = null;
+
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
 
       const video = $("signVideo");
       const canvas = $("signCanvas");
-      const signResult = $("signResult");
+      const result = $("signResult");
 
-      if (video) video.srcObject = null;
+      if (video) {
+        video.srcObject = null;
+      }
 
       if (canvas) {
         const context = canvas.getContext("2d");
         context.clearRect(0, 0, canvas.width, canvas.height);
       }
 
-      if (signResult) {
-        signResult.textContent = "Camera stopped.";
+      if (result) {
+        result.textContent = "Camera stopped.";
       }
+
+      lastDetectedPhrase = "";
+      lastSpokenAt = 0;
     }
 
-    $("startCameraButton").addEventListener("click", startSignCamera);
-    $("stopCameraButton").addEventListener("click", stopSignCamera);
+    /* Profile tools */
+    const tools = {
+      blind: {
+        description:
+          "Blind profile: audio guidance, large controls, and voice communication.",
+
+        cards: `
+          <article class="tool-card">
+            <span class="tool-icon">🔊</span>
+            <strong>Audio Guide</strong>
+            <small>Hear instructions for the main features.</small>
+            <button
+              class="button primary"
+              data-speak="You can use the emergency button at the top of the page. Select a phrase to hear it spoken aloud."
+            >
+              Start audio guide
+            </button>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon">🗣️</span>
+            <strong>Speak a Message</strong>
+            <small>Type a message and have the device read it aloud.</small>
+
+            <div class="custom-row">
+              <input
+                id="blindText"
+                placeholder="Type your message"
+                aria-label="Message to speak"
+              />
+              <button class="button primary" id="blindSpeak">
+                Speak
+              </button>
+            </div>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon">📞</span>
+            <strong>Call Contact</strong>
+            <small>Call the emergency contact quickly.</small>
+            <a class="button primary" href="tel:8891072007">
+              Call 8891072007
+            </a>
+          </article>
+        `
+      },
+
+      deaf: {
+        description:
+          "Deaf profile: hand-signal voice support, visual alerts, text communication, and live-location sharing.",
+
+        cards: `
+          <article class="tool-card camera-card">
+            <span class="tool-icon">🤟</span>
+            <strong>Hand Signal to Voice</strong>
+
+            <small>
+              Show one of these signals: open palm = Hello,
+              fist = Help me, thumbs up = Yes, thumbs down = No.
+            </small>
+
+            <div class="camera-wrap">
+              <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
+            </div>
+
+            <p
+              id="signResult"
+              class="sign-result"
+              role="status"
+              aria-live="polite"
+            >
+              Camera is off.
+            </p>
+
+            <div class="camera-controls">
+              <button
+                id="startCameraButton"
+                class="button primary"
+                type="button"
+              >
+                Start Camera
+              </button>
+
+              <button
+                id="stopCameraButton"
+                class="button"
+                type="button"
+              >
+                Stop Camera
+              </button>
+            </div>
+
+            <p class="camera-note">
+              Use good lighting and keep one hand clearly visible.
+              This is a simple prototype, not a full sign-language translator.
+            </p>
+          </article>
+
+          <article class="tool-card visual-alert">
+            <span class="tool-icon">💡</span>
+            <strong>Visual Alert</strong>
+            <small>Show a large, bright message to nearby people.</small>
+            <button
+              class="button primary"
+              data-large-message="I NEED HELP"
+            >
+              Show help message
+            </button>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon">📍</span>
+            <strong>Live Location</strong>
+            <small>Send your live Google Maps location by SMS.</small>
+            <button class="button primary" data-location>
+              Share live location
+            </button>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon">💬</span>
+            <strong>Quick Text</strong>
+            <small>Display an important message in large text.</small>
+            <button
+              class="button primary"
+              data-large-message="PLEASE HELP ME"
+            >
+              Show text message
+            </button>
+          </article>
+        `
+      },
+
+      mute: {
+        description:
+          "Mute / Nonverbal profile: quick phrases, text-to-speech, and live-location sharing.",
+
+        cards: `
+          <article class="tool-card phrase-box">
+            <span class="tool-icon">💬</span>
+            <strong>Communication Board</strong>
+            <small>Tap a phrase to speak it aloud.</small>
+
+            <div class="phrase-buttons">
+              <button class="phrase" data-phrase="I need help">
+                I need help
+              </button>
+
+              <button class="phrase" data-phrase="I need water">
+                I need water
+              </button>
+
+              <button class="phrase" data-phrase="I am in pain">
+                I am in pain
+              </button>
+
+              <button class="phrase" data-phrase="Please call my family">
+                Please call my family
+              </button>
+
+              <button class="phrase" data-phrase="Thank you">
+                Thank you
+              </button>
+
+              <button class="phrase" data-phrase="എനിക്ക് സഹായം വേണം">
+                എനിക്ക് സഹായം വേണം
+              </button>
+            </div>
+
+            <div class="custom-row">
+              <input
+                id="muteText"
+                placeholder="Type a message"
+                aria-label="Message to speak"
+              />
+              <button class="button primary" id="muteSpeak">
+                Speak message
+              </button>
+            </div>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon">📍</span>
+            <strong>Live Location</strong>
+            <small>Send your live Google Maps location by SMS.</small>
+            <button class="button primary" data-location>
+              Share live location
+            </button>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon">🪧</span>
+            <strong>Show Help Card</strong>
+            <small>Display a large message for people nearby.</small>
+            <button
+              class="button primary"
+              data-large-message="I CANNOT SPEAK. PLEASE HELP ME."
+            >
+              Show help card
+            </button>
+          </article>
+        `
+      }
+    };
+
+    function showLargeMessage(message) {
+      const card = document.createElement("div");
+
+      card.style.cssText = `
+        position: fixed;
+        inset: 0;
+        z-index: 4000;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #111;
+        color: #fff;
+        text-align: center;
+        font-size: clamp(2.5rem, 10vw, 7rem);
+        font-weight: 900;
+        cursor: pointer;
+      `;
+
+      card.textContent = message + " — Tap anywhere to close";
+      card.setAttribute("role", "dialog");
+      card.setAttribute("aria-label", message);
+
+      card.addEventListener("click", () => card.remove());
+
+      document.body.appendChild(card);
+    }
+
+    function attachToolEvents() {
+      document
+        .querySelectorAll("[data-speak], [data-phrase]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            speak(button.dataset.speak || button.dataset.phrase);
+          });
+        });
+
+      document
+        .querySelectorAll("[data-location]")
+        .forEach((button) => {
+          button.addEventListener("click", shareLocation);
+        });
+
+      document
+        .querySelectorAll("[data-large-message]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            showLargeMessage(button.dataset.largeMessage);
+          });
+        });
+
+      $("blindSpeak")?.addEventListener("click", () => {
+        speak($("blindText").value || "Please help me");
+      });
+
+      $("muteSpeak")?.addEventListener("click", () => {
+        speak($("muteText").value || "Please help me");
+      });
+
+      $("startCameraButton")?.addEventListener(
+        "click",
+        startSignCamera
+      );
+
+      $("stopCameraButton")?.addEventListener(
+        "click",
+        stopSignCamera
+      );
+    }
+
+    function renderProfile(profile) {
+      localStorage.setItem("accessAbleProfile", profile);
+
+      $("selectionSection").hidden = true;
+      $("dashboard").hidden = false;
+
+      $("profileDescription").textContent =
+        tools[profile].description;
+
+      $("toolGrid").innerHTML = tools[profile].cards;
+
+      attachToolEvents();
+
+      $("dashboard").scrollIntoView({
+        behavior: "smooth"
+      });
+    }
+
+    document.querySelectorAll("[data-profile]").forEach((button) => {
+      button.addEventListener("click", () => {
+        renderProfile(button.dataset.profile);
+      });
+    });
+
+    $("changeProfile").addEventListener("click", () => {
+      stopSignCamera();
+
+      $("dashboard").hidden = true;
+      $("selectionSection").hidden = false;
+
+      $("selectionSection").scrollIntoView({
+        behavior: "smooth"
+      });
+    });
 
     window.addEventListener("beforeunload", () => {
+      stopAlarm();
       stopSignCamera();
     });
   </script>
