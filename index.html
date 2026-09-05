@@ -184,7 +184,7 @@
       border: 3px solid var(--border);
       border-radius: 14px;
     }
-    #signVideo, #blindVideo {
+    #signVideo, #blindVideo, #sceneVideo {
       display: block;
       width: 100%;
       max-height: 460px;
@@ -231,6 +231,30 @@
       text-align: center;
     }
 
+    /* Voice command button */
+    .voice-button {
+      background: linear-gradient(135deg, #075bc8, #03499f);
+      color: #fff;
+      border: none;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-top: 12px;
+    }
+    .voice-button:hover {
+      background: linear-gradient(135deg, #03499f, #023a7f);
+    }
+    .voice-button.listening {
+      background: linear-gradient(135deg, #dc2626, #991b1b);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
     @media (max-width: 600px) {
       .options-grid, .tools-grid { grid-template-columns: 1fr; }
       .emergency-button { font-size: 1rem; }
@@ -255,7 +279,7 @@
       <!-- Emergency -->
       <section class="emergency-box">
         <h2>🚨 EMERGENCY HELP</h2>
-        <p>Alarm, live location, and call support</p>
+        <p>10-second alarm, live location via WhatsApp, and call support</p>
         <button id="emergencyButton" class="emergency-button" type="button">
           🆘 EMERGENCY — CALL FOR HELP
         </button>
@@ -306,17 +330,20 @@
   </div>
 
   <script>
-    const EMERGENCY_NUMBER = "8891072007";
+    const EMERGENCY_NUMBER = "918891072007"; // WhatsApp format: 91 + number
 
     let audioContext = null, oscillator = null, alarmInterval = null;
     let cameraStream = null, handCamera = null;
 
     // For single-hand locking
-    let lockedHandId = null;       // not used directly here, but conceptually we lock to first hand
+    let lockedHandId = null;
     let lastDetectedSign = "";
     let lastSpokenAt = 0;
 
     let blindStream = null;
+    let sceneStream = null;
+    let recognition = null;
+    let isListening = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -324,7 +351,7 @@
       $("dashboardStatus").textContent = msg;
     }
 
-    /* ---------- Emergency ---------- */
+    /* ---------- Emergency with 10-second beep + WhatsApp ---------- */
 
     function startAlarm() {
       try {
@@ -337,8 +364,15 @@
         oscillator.connect(gain);
         gain.connect(audioContext.destination);
         oscillator.start();
+        
+        // Toggle frequency for 10 seconds
+        let count = 0;
         alarmInterval = setInterval(() => {
           oscillator.frequency.value = oscillator.frequency.value === 880 ? 1100 : 880;
+          count++;
+          if (count >= 33) { // ~10 seconds (300ms intervals)
+            stopAlarm();
+          }
         }, 300);
       } catch (e) { console.log("Alarm could not start.", e); }
     }
@@ -373,35 +407,46 @@
           const lon = pos.coords.longitude;
           const url = "https://maps.google.com/?q=" + lat + "," + lon;
           box.className = "status-message success";
-          box.textContent = "✓ Location found. Opening emergency call...";
+          box.textContent = "✓ Location found. Sending via WhatsApp...";
           callback(url);
         },
         () => {
           box.className = "status-message error";
-          box.textContent = "Location was unavailable. Opening emergency call...";
+          box.textContent = "Location was unavailable. Opening WhatsApp...";
           callback(null);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
+    function sendViaWhatsApp(locationUrl) {
+      const msg = "🚨 EMERGENCY: I need immediate help." +
+        (locationUrl ? " My location: " + locationUrl : "");
+      
+      // WhatsApp click-to-chat format
+      const whatsappUrl = "https://wa.me/" + EMERGENCY_NUMBER + "?text=" + encodeURIComponent(msg);
+      
+      // Open WhatsApp
+      window.open(whatsappUrl, "_blank");
+      
+      // Then initiate call after 2 seconds
+      setTimeout(() => {
+        window.location.href = "tel:" + EMERGENCY_NUMBER.replace("91", "");
+      }, 2000);
+    }
+
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
       getLiveLocation((locationUrl) => {
-        const msg =
-          "EMERGENCY: I need immediate help." +
-          (locationUrl ? " My location: " + locationUrl : "");
-        console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
         setTimeout(() => {
-          stopAlarm();
-          window.location.href = "tel:" + EMERGENCY_NUMBER;
-        }, 1800);
+          sendViaWhatsApp(locationUrl);
+        }, 500);
       });
     });
 
     /* ---------- TTS ---------- */
 
-    function speak(text) {
+    function speak(text, lang = "en-IN") {
       if (!("speechSynthesis" in window)) {
         setDashboardStatus("Text-to-speech is not supported in this browser.");
         return;
@@ -410,17 +455,23 @@
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 0.9;
       u.volume = 1;
-      u.lang = "en-IN";
+      u.lang = lang;
+      
+      // Try Malayalam voice
+      const voices = window.speechSynthesis.getVoices();
+      const mlVoice = voices.find(v => v.lang.includes("ml") || v.lang.includes("malayalam"));
+      if (mlVoice) u.voice = mlVoice;
+      
       window.speechSynthesis.speak(u);
       setDashboardStatus("Speaking: " + text);
     }
 
-    /* ---------- Location by SMS ---------- */
+    /* ---------- Location by WhatsApp ---------- */
 
-    function shareLocationBySms() {
+    function shareLocationByWhatsApp() {
       setDashboardStatus("Requesting live location...");
       if (!navigator.geolocation) {
-        setDashboardStatus("Location is not supported in this browser.");
+        setDashboardStatus("Location is not supported by this browser.");
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -429,7 +480,8 @@
           const lon = pos.coords.longitude;
           const url = "https://maps.google.com/?q=" + lat + "," + lon;
           const text = "My live location: " + url;
-          window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(text);
+          const whatsappUrl = "https://wa.me/" + EMERGENCY_NUMBER + "?text=" + encodeURIComponent(text);
+          window.open(whatsappUrl, "_blank");
         },
         () => setDashboardStatus("Could not get location. Please allow location permission."),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -449,15 +501,221 @@
       document.body.appendChild(overlay);
     }
 
+    /* ---------- Blind: Voice commands + Scene description ---------- */
+
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        setDashboardStatus("Speech recognition is not supported in this browser. Use Chrome.");
+        return null;
+      }
+
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.lang = "en-IN";
+
+      recognitionInstance.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        console.log("Heard:", transcript);
+
+        if (transcript.includes("what's happening") || 
+            transcript.includes("what is happening") ||
+            transcript.includes("whats happening") ||
+            transcript.includes("describe")) {
+          startSceneDescription();
+        } else if (transcript.includes("help")) {
+          speak("I am here to help you. You can ask me what is happening or describe your surroundings.");
+        } else {
+          speak("You said: " + transcript + ". Try asking: What is happening?");
+        }
+      };
+
+      recognitionInstance.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        setDashboardStatus("Could not hear you. Please try again.");
+        isListening = false;
+        const voiceBtn = $("voiceCommandButton");
+        if (voiceBtn) {
+          voiceBtn.textContent = "🎤 Tap & Ask: What's happening?";
+          voiceBtn.classList.remove("listening");
+        }
+      };
+
+      recognitionInstance.onend = () => {
+        isListening = false;
+        const voiceBtn = $("voiceCommandButton");
+        if (voiceBtn) {
+          voiceBtn.textContent = "🎤 Tap & Ask: What's happening?";
+          voiceBtn.classList.remove("listening");
+        }
+      };
+
+      return recognitionInstance;
+    }
+
+    function startVoiceCommand() {
+      if (isListening) {
+        recognition.stop();
+        isListening = false;
+        const voiceBtn = $("voiceCommandButton");
+        voiceBtn.textContent = "🎤 Tap & Ask: What's happening?";
+        voiceBtn.classList.remove("listening");
+        return;
+      }
+
+      if (!recognition) {
+        recognition = initSpeechRecognition();
+        if (!recognition) return;
+      }
+
+      try {
+        recognition.start();
+        isListening = true;
+        const voiceBtn = $("voiceCommandButton");
+        voiceBtn.textContent = "🔴 Listening... Ask now!";
+        voiceBtn.classList.add("listening");
+        speak("Listening. Please ask: What is happening?");
+      } catch (e) {
+        console.error("Recognition start error:", e);
+        setDashboardStatus("Could not start listening. Please try again.");
+      }
+    }
+
+    async function startSceneDescription() {
+      const video = $("sceneVideo");
+      const canvas = $("sceneCanvas");
+      const status = $("sceneStatus");
+
+      if (!video || !canvas) {
+        speak("Camera is not available. Please enable video first.");
+        return;
+      }
+
+      try {
+        status.textContent = "Analyzing surroundings...";
+        speak("Analyzing your surroundings. Please wait.");
+
+        // Capture a frame from the video
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Simple scene analysis based on colors and brightness
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+
+        let totalBrightness = 0;
+        let redTotal = 0, greenTotal = 0, blueTotal = 0;
+        const pixelCount = pixels.length / 4;
+
+        for (let i = 0; i < pixels.length; i += 4) {
+          const r = pixels[i];
+          const g = pixels[i + 1];
+          const b = pixels[i + 2];
+          const brightness = (r + g + b) / 3;
+          
+          totalBrightness += brightness;
+          redTotal += r;
+          greenTotal += g;
+          blueTotal += b;
+        }
+
+        const avgBrightness = totalBrightness / pixelCount;
+        const avgRed = redTotal / pixelCount;
+        const avgGreen = greenTotal / pixelCount;
+        const avgBlue = blueTotal / pixelCount;
+
+        // Generate description
+        let description = [];
+
+        // Lighting
+        if (avgBrightness > 200) {
+          description.push("It is very bright, possibly outdoors in sunlight");
+        } else if (avgBrightness > 120) {
+          description.push("It is moderately lit, likely indoors or daytime");
+        } else if (avgBrightness > 60) {
+          description.push("It is somewhat dim, possibly evening or indoor lighting");
+        } else {
+          description.push("It is dark, possibly nighttime or a dark room");
+        }
+
+        // Dominant color
+        const maxColor = Math.max(avgRed, avgGreen, avgBlue);
+        if (maxColor === avgRed && avgRed > avgGreen + 20) {
+          description.push("with reddish tones");
+        } else if (maxColor === avgGreen && avgGreen > avgBlue + 20) {
+          description.push("with greenish tones, possibly near plants or outdoors");
+        } else if (maxColor === avgBlue && avgBlue > avgGreen + 20) {
+          description.push("with bluish tones, possibly sky or artificial lighting");
+        }
+
+        // Detect motion (simple frame comparison would go here in full version)
+        description.push("The camera is active and ready.");
+
+        const fullDescription = "I can see: " + description.join(", ") + ". You are in a " + 
+          (avgBrightness > 120 ? "well-lit" : "dimly lit") + " environment.";
+
+        status.textContent = fullDescription;
+        speak(fullDescription);
+
+      } catch (e) {
+        console.error("Scene analysis error:", e);
+        status.textContent = "Could not analyze the scene. Please try again.";
+        speak("Sorry, I could not analyze your surroundings. Please try again.");
+      }
+    }
+
+    async function startBlindVideo() {
+      const video = $("blindVideo");
+      const status = $("blindStatus");
+      if (!video) return;
+
+      try {
+        status.textContent = "Requesting camera permission...";
+        blindStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = blindStream;
+        await video.play();
+        status.textContent = "Video is on. Tap the voice button and ask: What's happening?";
+        speak("Video is on. You can now ask: What is happening?");
+      } catch (e) {
+        console.error(e);
+        status.textContent =
+          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
+        speak("Camera could not start. Please allow camera permission.");
+      }
+    }
+
+    function stopBlindVideo() {
+      if (blindStream) {
+        blindStream.getTracks().forEach((t) => t.stop());
+        blindStream = null;
+      }
+      if (sceneStream) {
+        sceneStream.getTracks().forEach((t) => t.stop());
+        sceneStream = null;
+      }
+      const video = $("blindVideo");
+      const sceneVideo = $("sceneVideo");
+      const status = $("blindStatus");
+      const sceneStatus = $("sceneStatus");
+      if (video) video.srcObject = null;
+      if (sceneVideo) sceneVideo.srcObject = null;
+      if (status) status.textContent = "Video is off.";
+      if (sceneStatus) sceneStatus.textContent = "Scene camera is off.";
+    }
+
     /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
 
     function isFingerUp(landmarks, tipIndex, pipIndex) {
-      // tip above pip (smaller y) and with some margin
       return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
     }
 
     function thumbDirection(landmarks) {
-      // thumb: 4 (tip), 3 (ip), 2 (cmc)
       const tip = landmarks[4];
       const ip = landmarks[3];
       const cmc = landmarks[2];
@@ -468,7 +726,6 @@
     }
 
     function recognizeSignFromLandmarks(landmarks) {
-      // Fingers: index(8,6), middle(12,10), ring(16,14), pinky(20,18)
       const indexUp = isFingerUp(landmarks, 8, 6);
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
@@ -478,57 +735,46 @@
       const raisedCount = tips.filter(Boolean).length;
       const thumbDir = thumbDirection(landmarks);
 
-      // Open palm: all 4 fingers up, thumb not down
       if (raisedCount === 4 && thumbDir !== "down") {
         return { label: "Hello", emoji: "👋" };
       }
 
-      // Fist: all fingers down, thumb mid
       if (raisedCount === 0 && thumbDir === "mid") {
         return { label: "Help me", emoji: "🆘" };
       }
 
-      // Thumbs up
       if (raisedCount === 0 && thumbDir === "up") {
         return { label: "Yes", emoji: "👍" };
       }
 
-      // Thumbs down
       if (raisedCount === 0 && thumbDir === "down") {
         return { label: "No", emoji: "👎" };
       }
 
-      // Index up only -> "Me"
       if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
         return { label: "Me", emoji: "☝️" };
       }
 
-      // Index + Middle up -> "Two"
       if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
         return { label: "Two", emoji: "✌️" };
       }
 
-      // Index + Middle + Ring up -> "Three"
       if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
         return { label: "Three", emoji: "🤟" };
       }
 
-      // All four fingers up + thumb up -> "Five"
       if (raisedCount === 4 && thumbDir === "up") {
         return { label: "Five", emoji: "🖐️" };
       }
 
-      // Pinky up only -> "Small"
       if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
         return { label: "Small", emoji: "🤏" };
       }
 
-      // Thumb + Pinky up (others down) -> "Call me"
       if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
         return { label: "Call me", emoji: "🤙" };
       }
 
-      // No clear sign
       return null;
     }
 
@@ -569,7 +815,6 @@
 
       if (!video || !canvas) return;
 
-      // Reset state
       lockedHandId = null;
       lastDetectedSign = "";
       lastSpokenAt = 0;
@@ -591,7 +836,6 @@
           locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
         });
 
-        // Focus on one hand only
         hands.setOptions({
           maxNumHands: 1,
           modelComplexity: 1,
@@ -607,10 +851,7 @@
           context.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            // Use the first detected hand only (single-hand focus)
             const lm = results.multiHandLandmarks[0];
-
-            // Optionally, you could use results.multiHandedness[0].label to know left/right.
 
             drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
             drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
@@ -671,50 +912,16 @@
       lastSpokenAt = 0;
     }
 
-    /* ---------- Blind: simple video only ---------- */
-
-    async function startBlindVideo() {
-      const video = $("blindVideo");
-      const status = $("blindStatus");
-      if (!video) return;
-
-      try {
-        status.textContent = "Requesting camera permission...";
-        blindStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        });
-        video.srcObject = blindStream;
-        await video.play();
-        status.textContent = "Video is on. This is a simple camera preview.";
-      } catch (e) {
-        console.error(e);
-        status.textContent =
-          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
-      }
-    }
-
-    function stopBlindVideo() {
-      if (blindStream) {
-        blindStream.getTracks().forEach((t) => t.stop());
-        blindStream = null;
-      }
-      const video = $("blindVideo");
-      const status = $("blindStatus");
-      if (video) video.srcObject = null;
-      if (status) status.textContent = "Video is off.";
-    }
-
     /* ---------- Profiles ---------- */
 
     const profiles = {
       blind: {
-        description: "Blind profile: simple video preview only.",
+        description: "Blind profile: Video preview with voice commands for scene description.",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">📹</span>
             <h3>Enable Video</h3>
-            <p>Turn on the camera for a simple video preview.</p>
+            <p>Turn on the camera for scene analysis.</p>
 
             <div class="camera-wrap">
               <video id="blindVideo" autoplay playsinline muted></video>
@@ -729,9 +936,29 @@
               <button id="stopBlindButton" class="button" type="button">Stop Video</button>
             </div>
 
-            <p class="note">
-              This is a basic camera preview with no hand recognition.
+            <button id="voiceCommandButton" class="voice-button" type="button">
+              🎤 Tap & Ask: What's happening?
+            </button>
+
+            <p class="note" style="margin-top:12px;">
+              After starting video, tap the voice button and ask: "What's happening?" to get a description of your surroundings.
             </p>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">📍</span>
+            <h3>Live Location</h3>
+            <p>Send your Google Maps location via WhatsApp.</p>
+            <button class="button primary" data-location>Share Live Location</button>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">💬</span>
+            <h3>Quick Help</h3>
+            <p>Show a large help message to nearby people.</p>
+            <button class="button primary" data-large-message="I NEED HELP. PLEASE ASSIST ME.">
+              Show Help Message
+            </button>
           </article>
         `
       },
@@ -750,7 +977,7 @@
           <article class="tool-card">
             <span class="icon">📍</span>
             <h3>Live Location</h3>
-            <p>Send your Google Maps location by SMS.</p>
+            <p>Send your Google Maps location via WhatsApp.</p>
             <button class="button primary" data-location>Share Live Location</button>
           </article>
 
@@ -809,7 +1036,7 @@
           <article class="tool-card">
             <span class="icon">📍</span>
             <h3>Live Location</h3>
-            <p>Send your Google Maps location by SMS.</p>
+            <p>Send your Google Maps location via WhatsApp.</p>
             <button class="button primary" data-location>Share Live Location</button>
           </article>
 
@@ -874,7 +1101,7 @@
 
       // Location buttons
       document.querySelectorAll("[data-location]").forEach((btn) => {
-        btn.addEventListener("click", shareLocationBySms);
+        btn.addEventListener("click", shareLocationByWhatsApp);
       });
 
       // Large message buttons
@@ -887,6 +1114,10 @@
       const stopBlindButton = $("stopBlindButton");
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
+
+      // Voice command button
+      const voiceCommandButton = $("voiceCommandButton");
+      if (voiceCommandButton) voiceCommandButton.addEventListener("click", startVoiceCommand);
 
       // Sign camera
       const startCameraButton = $("startCameraButton");
