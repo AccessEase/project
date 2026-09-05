@@ -234,11 +234,10 @@
     }
   </style>
 
-  <!-- MediaPipe Gesture Recognizer + Camera utils -->
+  <!-- MediaPipe Gesture Recognizer -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/gesture_recognizer/gesture_recognizer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head>
-
 <body>
   <div class="container">
     <header>
@@ -442,8 +441,11 @@
     /* ---------- Gesture Recognizer mapping to emoji ---------- */
 
     function mapGestureToSign(gestureName, handedness) {
+      // gestureName examples: "Closed_fist", "Open_palm", "Thumb_up", "Thumb_down",
+      // "Index_finger_up", "Index_finger_and_thumb_facing_each_other", etc.
       const g = gestureName || "";
 
+      // Basic mapping; you can extend this.
       if (g.includes("Open_palm")) {
         return { label: "Hello", emoji: "👋" };
       }
@@ -475,6 +477,7 @@
         return { label: "Call me", emoji: "🤙" };
       }
 
+      // Fallback: no clear mapping
       return null;
     }
 
@@ -515,7 +518,7 @@
       );
 
       gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
-        maxNumHands: 1,
+        maxNumHands: 1, // focus on one hand
         modelComplexity: 1,
         minHandDetectionConfidence: 0.8,
         minHandPresenceConfidence: 0.8,
@@ -533,6 +536,7 @@
 
       if (!video) return;
 
+      // Reset state
       lastDetectedSign = "";
       lastSpokenAt = 0;
       signResult.textContent = "Initializing gesture recognizer...";
@@ -551,8 +555,10 @@
         await video.play();
 
         const onResults = (results) => {
+          // results.gestures: array of detected gestures (up to maxNumHands)
           if (results.gestures && results.gestures.length > 0) {
-            const gestureList = results.gestures[0];
+            // Use first gesture only (single-hand focus)
+            const gestureList = results.gestures[0]; // each is [{categoryName, score, index, displayName}]
             if (gestureList.length > 0) {
               const top = gestureList[0];
               const gestureName = top.categoryName || top.displayName || "";
@@ -573,6 +579,7 @@
           }
         };
 
+        // Use MediaPipe Camera utility with GestureRecognizer
         camera = new Camera(video, {
           onFrame: async () => {
             if (!gestureRecognizer) return;
@@ -815,23 +822,899 @@
 
       $("dashboard").scrollIntoView({ behavior: "smooth" });
 
+      // Speak buttons
       document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
         btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
       });
 
+      // Location buttons
       document.querySelectorAll("[data-location]").forEach((btn) => {
         btn.addEventListener("click", shareLocationBySms);
       });
 
+      // Large message buttons
       document.querySelectorAll("[data-large-message]").forEach((btn) => {
         btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
 
+      // Blind video
       const startBlindButton = $("startBlindButton");
       const stopBlindButton = $("stopBlindButton");
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
 
+      // Gesture camera
+      const startCameraButton = $("startCameraButton");
+      const stopCameraButton = $("stopCameraButton");
+      if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
+      if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
+    }
+
+    document.querySelectorAll("[data-profile]").forEach((btn) => {
+      btn.addEventListener("click", () => renderProfile(btn.dataset.profile));
+    });
+
+    $("changeProfileButton").addEventListener("click", () => {
+      stopSignCamera();
+      stopBlindVideo();
+      $("dashboard").hidden = true;
+      $("selectionSection").hidden = false;
+      $("selectionSection").scrollIntoView({ behavior: "smooth" });
+    });
+
+    window.addEventListener("beforeunload", () => {
+      stopAlarm();
+      stopSignCamera();
+      stopBlindVideo();
+    });
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#075bc8" />
+  <title>AccessAble | Gesture Recognizer (Emoji)</title>
+
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #536176;
+      --border: #cbd5e1;
+      --primary: #075bc8;
+      --primary-dark: #03499f;
+      --danger: #dc2626;
+      --danger-dark: #991b1b;
+      --focus: #f59e0b;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible {
+      outline: 4px solid var(--focus);
+      outline-offset: 3px;
+    }
+    [hidden] { display: none !important; }
+
+    .container {
+      width: min(1100px, 92%);
+      margin: auto;
+      padding: 32px 0 50px;
+    }
+    header { text-align: center; margin-bottom: 28px; }
+    header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3rem);
+      color: var(--primary);
+    }
+    header p { margin: 8px 0 0; color: var(--muted); font-size: 1.1rem; }
+
+    .card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .emergency-box {
+      margin-bottom: 28px;
+      text-align: center;
+      color: #fff;
+      background: var(--danger);
+      border: 3px solid var(--danger-dark);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .emergency-box h2 { margin: 0 0 8px; font-size: 1.8rem; }
+    .emergency-box p { margin: 0 0 18px; }
+
+    .emergency-button {
+      width: min(100%, 520px);
+      min-height: 70px;
+      border: none;
+      border-radius: 12px;
+      padding: 15px 22px;
+      color: var(--danger-dark);
+      background: #fff;
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+    .emergency-button:hover { transform: translateY(-2px); }
+
+    .status-message {
+      margin: 16px 0 0;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+    .status-message.info {
+      color: #1e40af;
+      background: #dbeafe;
+      border: 2px solid #2563eb;
+    }
+    .status-message.success {
+      color: #166534;
+      background: #dcfce7;
+      border: 2px solid #16a34a;
+    }
+    .status-message.error {
+      color: #991b1b;
+      background: #fee2e2;
+      border: 2px solid #dc2626;
+    }
+
+    .options-grid, .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .option-card, .tool-card {
+      min-height: 220px;
+      padding: 22px;
+      border: 3px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      text-align: center;
+    }
+    .option-card:hover {
+      border-color: var(--primary);
+      background: #eaf3ff;
+      transform: translateY(-3px);
+    }
+    .icon {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 3.8rem;
+    }
+    .option-card h3, .tool-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+    }
+    .option-card p, .tool-card p {
+      color: var(--muted);
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 11px 16px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      background: var(--surface);
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .button.primary {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .button.primary:hover {
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
+    }
+
+    .dashboard-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .dashboard-header h2 { margin: 0; }
+    .dashboard-header p { margin: 6px 0 0; color: var(--muted); }
+
+    .full-width { grid-column: 1 / -1; }
+
+    .camera-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 700px;
+      margin: 16px auto 0;
+      overflow: hidden;
+      background: #111;
+      border: 3px solid var(--border);
+      border-radius: 14px;
+    }
+    #signVideo, #blindVideo {
+      display: block;
+      width: 100%;
+      max-height: 460px;
+      object-fit: cover;
+    }
+
+    .camera-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .sign-result {
+      max-width: 700px;
+      margin: 16px auto 0;
+      padding: 14px;
+      color: #0b315d;
+      background: #edf6ff;
+      border: 2px solid var(--primary);
+      border-radius: 10px;
+      font-weight: bold;
+      text-align: center;
+      font-size: 1.1rem;
+    }
+
+    .sign-emoji {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .note {
+      max-width: 700px;
+      margin: 16px auto 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .options-grid, .tools-grid { grid-template-columns: 1fr; }
+      .emergency-button { font-size: 1rem; }
+      .camera-controls { flex-direction: column; }
+      .button { width: 100%; }
+    }
+  </style>
+
+  <!-- MediaPipe Gesture Recognizer -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/gesture_recognizer/gesture_recognizer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>♿ AccessAble</h1>
+      <p>Communication, accessibility, and emergency support</p>
+    </header>
+
+    <main>
+      <!-- Emergency -->
+      <section class="emergency-box">
+        <h2>🚨 EMERGENCY HELP</h2>
+        <p>Alarm, live location, and call support</p>
+        <button id="emergencyButton" class="emergency-button" type="button">
+          🆘 EMERGENCY — CALL FOR HELP
+        </button>
+        <div id="emergencyStatus" class="status-message" hidden></div>
+      </section>
+
+      <!-- Selection -->
+      <section id="selectionSection" class="card">
+        <h2>Select Your Primary Need</h2>
+        <p>Choose one option. The matching tools open immediately.</p>
+        <div class="options-grid">
+          <article class="option-card">
+            <span class="icon">👁️</span>
+            <h3>Blind</h3>
+            <p>Visual impairment: Partial or total loss of sight.</p>
+            <button class="button primary" data-profile="blind">Select Blind</button>
+          </article>
+          <article class="option-card">
+            <span class="icon">👂</span>
+            <h3>Deaf</h3>
+            <p>Hearing impairment: Partial hearing loss or total deafness.</p>
+            <button class="button primary" data-profile="deaf">Select Deaf</button>
+          </article>
+          <article class="option-card">
+            <span class="icon">🗣️</span>
+            <h3>Mute / Nonverbal</h3>
+            <p>Speech impairment: Difficulty or inability to speak.</p>
+            <button class="button primary" data-profile="mute">Select Mute / Nonverbal</button>
+          </article>
+        </div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="dashboard" class="card" hidden>
+        <div class="dashboard-header">
+          <div>
+            <h2>Your Support Tools</h2>
+            <p id="profileDescription"></p>
+          </div>
+          <button id="changeProfileButton" class="button" type="button">
+            Change Selection
+          </button>
+        </div>
+        <div id="toolsGrid" class="tools-grid"></div>
+        <p id="dashboardStatus" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const EMERGENCY_NUMBER = "8891072007";
+
+    let audioContext = null, oscillator = null, alarmInterval = null;
+    let camera = null, gestureRecognizer = null;
+    let lastDetectedSign = "", lastSpokenAt = 0;
+    let blindStream = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function setDashboardStatus(msg) {
+      $("dashboardStatus").textContent = msg;
+    }
+
+    /* ---------- Emergency ---------- */
+
+    function startAlarm() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "square";
+        oscillator.frequency.value = 880;
+        gain.gain.value = 0.9;
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start();
+        alarmInterval = setInterval(() => {
+          oscillator.frequency.value = oscillator.frequency.value === 880 ? 1100 : 880;
+        }, 300);
+      } catch (e) { console.log("Alarm could not start.", e); }
+    }
+
+    function stopAlarm() {
+      clearInterval(alarmInterval);
+      try {
+        if (oscillator) oscillator.stop();
+        if (oscillator) oscillator.disconnect();
+        if (audioContext) audioContext.close();
+      } catch (e) {}
+      oscillator = null;
+      audioContext = null;
+    }
+
+    function getLiveLocation(callback) {
+      const box = $("emergencyStatus");
+      box.hidden = false;
+      box.className = "status-message info";
+      box.textContent = "📍 Getting your live location...";
+
+      if (!navigator.geolocation) {
+        box.className = "status-message error";
+        box.textContent = "Location is not supported by this browser.";
+        callback(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const url = "https://maps.google.com/?q=" + lat + "," + lon;
+          box.className = "status-message success";
+          box.textContent = "✓ Location found. Opening emergency call...";
+          callback(url);
+        },
+        () => {
+          box.className = "status-message error";
+          box.textContent = "Location was unavailable. Opening emergency call...";
+          callback(null);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    $("emergencyButton").addEventListener("click", () => {
+      startAlarm();
+      getLiveLocation((locationUrl) => {
+        const msg =
+          "EMERGENCY: I need immediate help." +
+          (locationUrl ? " My location: " + locationUrl : "");
+        console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
+        setTimeout(() => {
+          stopAlarm();
+          window.location.href = "tel:" + EMERGENCY_NUMBER;
+        }, 1800);
+      });
+    });
+
+    /* ---------- TTS ---------- */
+
+    function speak(text) {
+      if (!("speechSynthesis" in window)) {
+        setDashboardStatus("Text-to-speech is not supported in this browser.");
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.9;
+      u.volume = 1;
+      u.lang = "en-IN";
+      window.speechSynthesis.speak(u);
+      setDashboardStatus("Speaking: " + text);
+    }
+
+    /* ---------- Location by SMS ---------- */
+
+    function shareLocationBySms() {
+      setDashboardStatus("Requesting live location...");
+      if (!navigator.geolocation) {
+        setDashboardStatus("Location is not supported in this browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const url = "https://maps.google.com/?q=" + lat + "," + lon;
+          const text = "My live location: " + url;
+          window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(text);
+        },
+        () => setDashboardStatus("Could not get location. Please allow location permission."),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    /* ---------- Large message overlay ---------- */
+
+    function showLargeMessage(message) {
+      const overlay = document.createElement("div");
+      overlay.style.cssText =
+        "position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:30px;color:#fff;background:#111;font-size:clamp(2.5rem,11vw,8rem);font-weight:900;text-align:center;cursor:pointer;";
+      overlay.textContent = message + " — Tap anywhere to close";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-label", message);
+      overlay.addEventListener("click", () => overlay.remove());
+      document.body.appendChild(overlay);
+    }
+
+    /* ---------- Gesture Recognizer mapping to emoji ---------- */
+
+    function mapGestureToSign(gestureName, handedness) {
+      // gestureName examples: "Closed_fist", "Open_palm", "Thumb_up", "Thumb_down",
+      // "Index_finger_up", "Index_finger_and_thumb_facing_each_other", etc.
+      const g = gestureName || "";
+
+      // Basic mapping; you can extend this.
+      if (g.includes("Open_palm")) {
+        return { label: "Hello", emoji: "👋" };
+      }
+      if (g.includes("Closed_fist")) {
+        return { label: "Help me", emoji: "🆘" };
+      }
+      if (g.includes("Thumb_up")) {
+        return { label: "Yes", emoji: "👍" };
+      }
+      if (g.includes("Thumb_down")) {
+        return { label: "No", emoji: "👎" };
+      }
+      if (g.includes("Index_finger_up")) {
+        return { label: "Me", emoji: "☝️" };
+      }
+      if (g.includes("Victory")) {
+        return { label: "Two", emoji: "✌️" };
+      }
+      if (g.includes("Three_finger_salute")) {
+        return { label: "Three", emoji: "🤟" };
+      }
+      if (g.includes("Five")) {
+        return { label: "Five", emoji: "🖐️" };
+      }
+      if (g.includes("Pinky_finger_up")) {
+        return { label: "Small", emoji: "🤏" };
+      }
+      if (g.includes("Call_me_hand")) {
+        return { label: "Call me", emoji: "🤙" };
+      }
+
+      // Fallback: no clear mapping
+      return null;
+    }
+
+    function speakDetectedSign(signObj) {
+      const now = Date.now();
+      if (
+        signObj &&
+        signObj.label === lastDetectedSign &&
+        now - lastSpokenAt < 2500
+      ) {
+        return;
+      }
+      if (!signObj) return;
+
+      lastDetectedSign = signObj.label;
+      lastSpokenAt = now;
+
+      const signResult = $("signResult");
+      if (signResult) {
+        signResult.innerHTML =
+          '<span class="sign-emoji" aria-hidden="true">' +
+          signObj.emoji +
+          '</span>Detected: ' +
+          signObj.label +
+          " (" + signObj.emoji + ")";
+      }
+
+      speak(signObj.label);
+    }
+
+    /* ---------- Initialize Gesture Recognizer ---------- */
+
+    async function initGestureRecognizer() {
+      if (gestureRecognizer) return gestureRecognizer;
+
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/gesture_recognizer@latest/wasm"
+      );
+
+      gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
+        maxNumHands: 1, // focus on one hand
+        modelComplexity: 1,
+        minHandDetectionConfidence: 0.8,
+        minHandPresenceConfidence: 0.8,
+        minTrackingConfidence: 0.5
+      });
+
+      return gestureRecognizer;
+    }
+
+    /* ---------- Camera for gesture recognition (Deaf & Mute) ---------- */
+
+    async function startSignCamera() {
+      const video = $("signVideo");
+      const signResult = $("signResult");
+
+      if (!video) return;
+
+      // Reset state
+      lastDetectedSign = "";
+      lastSpokenAt = 0;
+      signResult.textContent = "Initializing gesture recognizer...";
+
+      try {
+        await initGestureRecognizer();
+
+        signResult.textContent = "Requesting camera permission...";
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        await video.play();
+
+        const onResults = (results) => {
+          // results.gestures: array of detected gestures (up to maxNumHands)
+          if (results.gestures && results.gestures.length > 0) {
+            // Use first gesture only (single-hand focus)
+            const gestureList = results.gestures[0]; // each is [{categoryName, score, index, displayName}]
+            if (gestureList.length > 0) {
+              const top = gestureList[0];
+              const gestureName = top.categoryName || top.displayName || "";
+              const handedness = results.handedness?.[0]?.[0]?.categoryName || "";
+
+              const signObj = mapGestureToSign(gestureName, handedness);
+              if (signObj) {
+                speakDetectedSign(signObj);
+              } else {
+                signResult.textContent =
+                  "Hand detected. Try: open palm, closed fist, thumb up/down, index up, victory, three-finger, five, pinky up, call-me.";
+              }
+            } else {
+              signResult.textContent = "Hand detected but no clear gesture.";
+            }
+          } else {
+            signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
+          }
+        };
+
+        // Use MediaPipe Camera utility with GestureRecognizer
+        camera = new Camera(video, {
+          onFrame: async () => {
+            if (!gestureRecognizer) return;
+            const results = await gestureRecognizer.recognize(video);
+            onResults(results);
+          },
+          width: 1280,
+          height: 720
+        });
+
+        camera.start();
+        signResult.textContent = "Camera started. Show a hand sign.";
+      } catch (err) {
+        console.error(err);
+        signResult.textContent =
+          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
+      }
+    }
+
+    function stopSignCamera() {
+      if (camera) {
+        camera.stop();
+        camera = null;
+      }
+      if (gestureRecognizer) {
+        gestureRecognizer.close();
+        gestureRecognizer = null;
+      }
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      const video = $("signVideo");
+      const signResult = $("signResult");
+
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+      }
+      if (signResult) signResult.textContent = "Camera stopped.";
+
+      lastDetectedSign = "";
+      lastSpokenAt = 0;
+    }
+
+    /* ---------- Blind: simple video only ---------- */
+
+    async function startBlindVideo() {
+      const video = $("blindVideo");
+      const status = $("blindStatus");
+      if (!video) return;
+
+      try {
+        status.textContent = "Requesting camera permission...";
+        blindStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = blindStream;
+        await video.play();
+        status.textContent = "Video is on. This is a simple camera preview.";
+      } catch (e) {
+        console.error(e);
+        status.textContent =
+          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
+      }
+    }
+
+    function stopBlindVideo() {
+      if (blindStream) {
+        blindStream.getTracks().forEach((t) => t.stop());
+        blindStream = null;
+      }
+      const video = $("blindVideo");
+      const status = $("blindStatus");
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+      }
+      if (status) status.textContent = "Video is off.";
+    }
+
+    /* ---------- Profiles ---------- */
+
+    const profiles = {
+      blind: {
+        description: "Blind profile: simple video preview only.",
+        tools: `
+          <article class="tool-card full-width">
+            <span class="icon">📹</span>
+            <h3>Enable Video</h3>
+            <p>Turn on the camera for a simple video preview.</p>
+
+            <div class="camera-wrap">
+              <video id="blindVideo" autoplay playsinline muted></video>
+            </div>
+
+            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
+              Video is off.
+            </p>
+
+            <div class="camera-controls">
+              <button id="startBlindButton" class="button primary" type="button">Start Video</button>
+              <button id="stopBlindButton" class="button" type="button">Stop Video</button>
+            </div>
+
+            <p class="note">
+              This is a basic camera preview with no hand recognition.
+            </p>
+          </article>
+        `
+      },
+
+      deaf: {
+        description:
+          "Deaf profile: visual alerts, live location, and MediaPipe Gesture Recognizer with emoji output.",
+        tools: `
+          <article class="tool-card">
+            <span class="icon">💡</span>
+            <h3>Visual Alert</h3>
+            <p>Show a large help message to nearby people.</p>
+            <button class="button primary" data-large-message="I NEED HELP">Show Help Message</button>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">📍</span>
+            <h3>Live Location</h3>
+            <p>Send your Google Maps location by SMS.</p>
+            <button class="button primary" data-location>Share Live Location</button>
+          </article>
+
+          <article class="tool-card full-width">
+            <span class="icon">📷</span>
+            <h3>Hand Sign to Voice (Emoji)</h3>
+            <p>
+              Uses MediaPipe Gesture Recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
+            </p>
+
+            <div class="camera-wrap">
+              <video id="signVideo" autoplay playsinline muted></video>
+            </div>
+
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
+              Camera is off.
+            </p>
+
+            <div class="camera-controls">
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
+            </div>
+
+            <p class="note">
+              This is a gesture-based prototype, not a full sign-language translator.
+            </p>
+          </article>
+        `
+      },
+
+      mute: {
+        description:
+          "Mute / Nonverbal profile: phrase board, live location, visual help, and MediaPipe Gesture Recognizer with emoji.",
+        tools: `
+          <article class="tool-card full-width">
+            <span class="icon">💬</span>
+            <h3>Communication Board</h3>
+            <p>Tap a phrase and the device will speak it aloud.</p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;">
+              <button class="button" data-phrase="I need help">I need help</button>
+              <button class="button" data-phrase="I need water">I need water</button>
+              <button class="button" data-phrase="I am in pain">I am in pain</button>
+              <button class="button" data-phrase="Please call my family">Please call my family</button>
+              <button class="button" data-phrase="Thank you">Thank you</button>
+              <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">എനിക്ക് സഹായം വേണം</button>
+            </div>
+
+            <p class="note" style="margin-top:10px;">
+              Tap any button above to speak that phrase.
+            </p>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">📍</span>
+            <h3>Live Location</h3>
+            <p>Send your Google Maps location by SMS.</p>
+            <button class="button primary" data-location>Share Live Location</button>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">🪧</span>
+            <h3>Help Card</h3>
+            <p>Show a large message for people nearby.</p>
+            <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">
+              Show Help Card
+            </button>
+          </article>
+
+          <article class="tool-card full-width">
+            <span class="icon">📷</span>
+            <h3>Hand Sign to Voice (Emoji)</h3>
+            <p>
+              Uses MediaPipe Gesture Recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
+            </p>
+
+            <div class="camera-wrap">
+              <video id="signVideo" autoplay playsinline muted></video>
+            </div>
+
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
+              Camera is off.
+            </p>
+
+            <div class="camera-controls">
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
+            </div>
+
+            <p class="note">
+              This is a gesture-based prototype, not a full sign-language translator.
+            </p>
+          </article>
+        `
+      }
+    };
+
+    function renderProfile(profileName) {
+      stopSignCamera();
+      stopBlindVideo();
+
+      const profile = profiles[profileName];
+      localStorage.setItem("accessAbleProfile", profileName);
+
+      $("selectionSection").hidden = true;
+      $("dashboard").hidden = false;
+
+      $("profileDescription").textContent = profile.description;
+      $("toolsGrid").innerHTML = profile.tools;
+
+      $("dashboard").scrollIntoView({ behavior: "smooth" });
+
+      // Speak buttons
+      document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
+        btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
+      });
+
+      // Location buttons
+      document.querySelectorAll("[data-location]").forEach((btn) => {
+        btn.addEventListener("click", shareLocationBySms);
+      });
+
+      // Large message buttons
+      document.querySelectorAll("[data-large-message]").forEach((btn) => {
+        btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
+      });
+
+      // Blind video
+      const startBlindButton = $("startBlindButton");
+      const stopBlindButton = $("stopBlindButton");
+      if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
+      if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
+
+      // Gesture camera
       const startCameraButton = $("startCameraButton");
       const stopCameraButton = $("stopCameraButton");
       if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
