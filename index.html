@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#075bc8" />
-  <title>AccessAble | Accessibility Support (Extended Gestures)</title>
+  <title>AccessAble | Hand Sign to Voice (Single Hand + Emoji)</title>
 
   <style>
     :root {
@@ -214,7 +214,15 @@
       border-radius: 10px;
       font-weight: bold;
       text-align: center;
+      font-size: 1.1rem;
     }
+
+    .sign-emoji {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 8px;
+    }
+
     .note {
       max-width: 700px;
       margin: 16px auto 0;
@@ -302,7 +310,12 @@
 
     let audioContext = null, oscillator = null, alarmInterval = null;
     let cameraStream = null, handCamera = null;
-    let lastDetectedSign = "", lastSpokenAt = 0;
+
+    // For single-hand locking
+    let lockedHandId = null;       // not used directly here, but conceptually we lock to first hand
+    let lastDetectedSign = "";
+    let lastSpokenAt = 0;
+
     let blindStream = null;
 
     const $ = (id) => document.getElementById(id);
@@ -436,104 +449,115 @@
       document.body.appendChild(overlay);
     }
 
-    /* ---------- Hand / Sign recognition (extended gestures) ---------- */
+    /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
 
-    // Basic helpers
-    function isFingerUp(landmarks, tip, pip) {
-      return landmarks[tip].y < landmarks[pip].y;
+    function isFingerUp(landmarks, tipIndex, pipIndex) {
+      // tip above pip (smaller y) and with some margin
+      return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
     }
 
-    function fingerTipsExtended(landmarks) {
+    function thumbDirection(landmarks) {
+      // thumb: 4 (tip), 3 (ip), 2 (cmc)
+      const tip = landmarks[4];
+      const ip = landmarks[3];
+      const cmc = landmarks[2];
+
+      if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
+      if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
+      return "mid";
+    }
+
+    function recognizeSignFromLandmarks(landmarks) {
+      // Fingers: index(8,6), middle(12,10), ring(16,14), pinky(20,18)
       const indexUp = isFingerUp(landmarks, 8, 6);
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
       const pinkyUp = isFingerUp(landmarks, 20, 18);
-      return [indexUp, middleUp, ringUp, pinkyUp];
-    }
 
-    function thumbDirection(landmarks) {
-      // thumb tip (4), ip joint (3), cmc (2)
-      if (landmarks[4].y < landmarks[3].y && landmarks[4].y < landmarks[2].y) return "up";
-      if (landmarks[4].y > landmarks[3].y && landmarks[4].y > landmarks[2].y) return "down";
-      return "mid";
-    }
-
-    /**
-     * Extended gesture set (static signs only).
-     * This is NOT a full sign-language translator.
-     * It maps some common hand shapes to words/phrases.
-     */
-    function recognizeSignFromLandmarks(landmarks) {
-      const tips = fingerTipsExtended(landmarks);
+      const tips = [indexUp, middleUp, ringUp, pinkyUp];
       const raisedCount = tips.filter(Boolean).length;
       const thumbDir = thumbDirection(landmarks);
 
-      // Open palm: all 4 fingers up, thumb roughly mid/up
+      // Open palm: all 4 fingers up, thumb not down
       if (raisedCount === 4 && thumbDir !== "down") {
-        return "Hello";
+        return { label: "Hello", emoji: "👋" };
       }
 
-      // Fist: all fingers down, thumb not clearly up/down
+      // Fist: all fingers down, thumb mid
       if (raisedCount === 0 && thumbDir === "mid") {
-        return "Help me";
+        return { label: "Help me", emoji: "🆘" };
       }
 
       // Thumbs up
       if (raisedCount === 0 && thumbDir === "up") {
-        return "Yes";
+        return { label: "Yes", emoji: "👍" };
       }
 
       // Thumbs down
       if (raisedCount === 0 && thumbDir === "down") {
-        return "No";
+        return { label: "No", emoji: "👎" };
       }
 
-      // Index finger only up -> "I" / "Me"
-      if (raisedCount === 1 && tips[0]) {
-        return "Me";
+      // Index up only -> "Me"
+      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { label: "Me", emoji: "☝️" };
       }
 
-      // Index + Middle up (others down) -> "Victory" / "Two"
-      if (raisedCount === 2 && tips[0] && tips[1]) {
-        return "Two";
+      // Index + Middle up -> "Two"
+      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
+        return { label: "Two", emoji: "✌️" };
       }
 
       // Index + Middle + Ring up -> "Three"
-      if (raisedCount === 3 && tips[0] && tips[1] && tips[2]) {
-        return "Three";
+      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
+        return { label: "Three", emoji: "🤟" };
       }
 
-      // All four fingers up + thumb clearly up -> "Five"
+      // All four fingers up + thumb up -> "Five"
       if (raisedCount === 4 && thumbDir === "up") {
-        return "Five";
+        return { label: "Five", emoji: "🖐️" };
       }
 
-      // Pinky up only -> "Small" / "Little"
-      if (raisedCount === 1 && tips[3]) {
-        return "Small";
+      // Pinky up only -> "Small"
+      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
+        return { label: "Small", emoji: "🤏" };
       }
 
-      // Thumb + Pinky up (others down) -> "Call me" gesture
-      if (raisedCount === 1 && tips[3] && thumbDir !== "mid") {
-        return "Call me";
+      // Thumb + Pinky up (others down) -> "Call me"
+      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
+        return { label: "Call me", emoji: "🤙" };
       }
 
-      // Default: unknown / no clear sign
-      return "";
+      // No clear sign
+      return null;
     }
 
-    function speakDetectedSign(signText) {
+    function speakDetectedSign(signObj) {
       const now = Date.now();
-      if (signText === lastDetectedSign && now - lastSpokenAt < 2500) return;
+      if (
+        signObj &&
+        signObj.label === lastDetectedSign &&
+        now - lastSpokenAt < 2500
+      ) {
+        return;
+      }
 
-      lastDetectedSign = signText;
+      if (!signObj) return;
+
+      lastDetectedSign = signObj.label;
       lastSpokenAt = now;
 
       const signResult = $("signResult");
       if (signResult) {
-        signResult.textContent = "Detected sign: " + signText;
+        signResult.innerHTML =
+          '<span class="sign-emoji" aria-hidden="true">' +
+          signObj.emoji +
+          '</span>Detected sign: ' +
+          signObj.label +
+          " (" + signObj.emoji + ")";
       }
-      speak(signText);
+
+      speak(signObj.label);
     }
 
     /* ---------- Camera for sign/gesture recognition (Deaf & Mute) ---------- */
@@ -544,6 +568,11 @@
       const signResult = $("signResult");
 
       if (!video || !canvas) return;
+
+      // Reset state
+      lockedHandId = null;
+      lastDetectedSign = "";
+      lastSpokenAt = 0;
 
       try {
         signResult.textContent = "Requesting camera permission...";
@@ -562,11 +591,12 @@
           locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
         });
 
+        // Focus on one hand only
         hands.setOptions({
           maxNumHands: 1,
           modelComplexity: 1,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.7
+          minDetectionConfidence: 0.8,
+          minTrackingConfidence: 0.8
         });
 
         hands.onResults((results) => {
@@ -576,18 +606,21 @@
           context.save();
           context.clearRect(0, 0, canvas.width, canvas.height);
 
-          if (results.multiHandLandmarks?.length) {
+          if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            // Use the first detected hand only (single-hand focus)
             const lm = results.multiHandLandmarks[0];
+
+            // Optionally, you could use results.multiHandedness[0].label to know left/right.
 
             drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
             drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
 
-            const sign = recognizeSignFromLandmarks(lm);
-            if (sign) {
-              speakDetectedSign(sign);
+            const signObj = recognizeSignFromLandmarks(lm);
+            if (signObj) {
+              speakDetectedSign(signObj);
             } else {
               signResult.textContent =
-                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two fingers, three, five, pinky up, call-me.";
+                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two, three, five, pinky up, call-me.";
             }
           } else {
             signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
@@ -632,6 +665,10 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
       if (signResult) signResult.textContent = "Camera stopped.";
+
+      lockedHandId = null;
+      lastDetectedSign = "";
+      lastSpokenAt = 0;
     }
 
     /* ---------- Blind: simple video only ---------- */
@@ -701,7 +738,7 @@
 
       deaf: {
         description:
-          "Deaf profile: visual alerts, live location, and extended hand‑sign to voice (prototype).",
+          "Deaf profile: visual alerts, live location, and hand‑sign to voice with emoji (prototype).",
         tools: `
           <article class="tool-card">
             <span class="icon">💡</span>
@@ -719,10 +756,10 @@
 
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Hand Sign to Voice (Extended)</h3>
+            <h3>Hand Sign to Voice (Emoji)</h3>
             <p>
-              Camera-based gesture recognizer. Supported signs include:
-              Hello, Help me, Yes, No, Me, Two, Three, Five, Small, Call me.
+              Camera-based gesture recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
             </p>
 
             <div class="camera-wrap">
@@ -748,7 +785,7 @@
 
       mute: {
         description:
-          "Mute / Nonverbal profile: phrase board, live location, visual help, and extended hand‑sign to voice.",
+          "Mute / Nonverbal profile: phrase board, live location, visual help, and hand‑sign to voice with emoji.",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">💬</span>
@@ -787,10 +824,10 @@
 
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Hand Sign to Voice (Extended)</h3>
+            <h3>Hand Sign to Voice (Emoji)</h3>
             <p>
-              Camera-based gesture recognizer. Supported signs include:
-              Hello, Help me, Yes, No, Me, Two, Three, Five, Small, Call me.
+              Camera-based gesture recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
             </p>
 
             <div class="camera-wrap">
