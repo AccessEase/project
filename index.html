@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#075bc8" />
-  <title>AccessAble | Accessibility Support</title>
+  <title>AccessAble | Accessibility Support (Extended Gestures)</title>
 
   <style>
     :root {
@@ -22,10 +22,7 @@
       --shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -34,48 +31,26 @@
       color: var(--text);
       line-height: 1.5;
     }
-
-    button,
-    input {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    button:focus-visible,
-    input:focus-visible {
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible {
       outline: 4px solid var(--focus);
       outline-offset: 3px;
     }
-
-    [hidden] {
-      display: none !important;
-    }
+    [hidden] { display: none !important; }
 
     .container {
       width: min(1100px, 92%);
       margin: auto;
       padding: 32px 0 50px;
     }
-
-    header {
-      text-align: center;
-      margin-bottom: 28px;
-    }
-
+    header { text-align: center; margin-bottom: 28px; }
     header h1 {
       margin: 0;
       font-size: clamp(2rem, 5vw, 3rem);
       color: var(--primary);
     }
-
-    header p {
-      margin: 8px 0 0;
-      color: var(--muted);
-      font-size: 1.1rem;
-    }
+    header p { margin: 8px 0 0; color: var(--muted); font-size: 1.1rem; }
 
     .card {
       background: var(--surface);
@@ -88,21 +63,14 @@
     .emergency-box {
       margin-bottom: 28px;
       text-align: center;
-      color: white;
+      color: #fff;
       background: var(--danger);
       border: 3px solid var(--danger-dark);
       border-radius: var(--radius);
       padding: 24px;
     }
-
-    .emergency-box h2 {
-      margin: 0 0 8px;
-      font-size: 1.8rem;
-    }
-
-    .emergency-box p {
-      margin: 0 0 18px;
-    }
+    .emergency-box h2 { margin: 0 0 8px; font-size: 1.8rem; }
+    .emergency-box p { margin: 0 0 18px; }
 
     .emergency-button {
       width: min(100%, 520px);
@@ -111,14 +79,11 @@
       border-radius: 12px;
       padding: 15px 22px;
       color: var(--danger-dark);
-      background: white;
+      background: #fff;
       font-size: 1.25rem;
       font-weight: 900;
     }
-
-    .emergency-button:hover {
-      transform: translateY(-2px);
-    }
+    .emergency-button:hover { transform: translateY(-2px); }
 
     .status-message {
       margin: 16px 0 0;
@@ -126,34 +91,28 @@
       border-radius: 10px;
       font-weight: bold;
     }
-
     .status-message.info {
       color: #1e40af;
       background: #dbeafe;
       border: 2px solid #2563eb;
     }
-
     .status-message.success {
       color: #166534;
       background: #dcfce7;
       border: 2px solid #16a34a;
     }
-
     .status-message.error {
       color: #991b1b;
       background: #fee2e2;
       border: 2px solid #dc2626;
     }
 
-    .options-grid,
-    .tools-grid {
+    .options-grid, .tools-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 18px;
     }
-
-    .option-card,
-    .tool-card {
+    .option-card, .tool-card {
       min-height: 220px;
       padding: 22px;
       border: 3px solid var(--border);
@@ -161,27 +120,21 @@
       background: var(--surface);
       text-align: center;
     }
-
     .option-card:hover {
       border-color: var(--primary);
       background: #eaf3ff;
       transform: translateY(-3px);
     }
-
     .icon {
       display: block;
       margin-bottom: 12px;
       font-size: 3.8rem;
     }
-
-    .option-card h3,
-    .tool-card h3 {
+    .option-card h3, .tool-card h3 {
       margin: 0 0 8px;
       font-size: 1.35rem;
     }
-
-    .option-card p,
-    .tool-card p {
+    .option-card p, .tool-card p {
       color: var(--muted);
     }
 
@@ -198,13 +151,11 @@
       font-weight: bold;
       text-decoration: none;
     }
-
     .button.primary {
-      color: white;
+      color: #fff;
       background: var(--primary);
       border-color: var(--primary);
     }
-
     .button.primary:hover {
       background: var(--primary-dark);
       border-color: var(--primary-dark);
@@ -218,19 +169,10 @@
       flex-wrap: wrap;
       margin-bottom: 20px;
     }
+    .dashboard-header h2 { margin: 0; }
+    .dashboard-header p { margin: 6px 0 0; color: var(--muted); }
 
-    .dashboard-header h2 {
-      margin: 0;
-    }
-
-    .dashboard-header p {
-      margin: 6px 0 0;
-      color: var(--muted);
-    }
-
-    .full-width {
-      grid-column: 1 / -1;
-    }
+    .full-width { grid-column: 1 / -1; }
 
     .camera-wrap {
       position: relative;
@@ -242,15 +184,12 @@
       border: 3px solid var(--border);
       border-radius: 14px;
     }
-
-    #signVideo,
-    #blindVideo {
+    #signVideo, #blindVideo {
       display: block;
       width: 100%;
       max-height: 460px;
       object-fit: cover;
     }
-
     #signCanvas {
       position: absolute;
       inset: 0;
@@ -276,7 +215,6 @@
       font-weight: bold;
       text-align: center;
     }
-
     .note {
       max-width: 700px;
       margin: 16px auto 0;
@@ -286,31 +224,18 @@
     }
 
     @media (max-width: 600px) {
-      .options-grid,
-      .tools-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .emergency-button {
-        font-size: 1rem;
-      }
-
-      .camera-controls {
-        flex-direction: column;
-      }
-
-      .button {
-        width: 100%;
-      }
+      .options-grid, .tools-grid { grid-template-columns: 1fr; }
+      .emergency-button { font-size: 1rem; }
+      .camera-controls { flex-direction: column; }
+      .button { width: 100%; }
     }
   </style>
 
-  <!-- MediaPipe for hand tracking (used by Deaf & Mute) -->
+  <!-- MediaPipe for hand tracking -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head>
-
 <body>
   <div class="container">
     <header>
@@ -319,72 +244,54 @@
     </header>
 
     <main>
-      <!-- Emergency button for every user -->
+      <!-- Emergency -->
       <section class="emergency-box">
         <h2>🚨 EMERGENCY HELP</h2>
         <p>Alarm, live location, and call support</p>
-
-        <button
-          id="emergencyButton"
-          class="emergency-button"
-          type="button"
-        >
+        <button id="emergencyButton" class="emergency-button" type="button">
           🆘 EMERGENCY — CALL FOR HELP
         </button>
-
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
-      <!-- Main selection screen -->
+      <!-- Selection -->
       <section id="selectionSection" class="card">
         <h2>Select Your Primary Need</h2>
         <p>Choose one option. The matching tools open immediately.</p>
-
         <div class="options-grid">
           <article class="option-card">
             <span class="icon">👁️</span>
             <h3>Blind</h3>
             <p>Visual impairment: Partial or total loss of sight.</p>
-            <button class="button primary" data-profile="blind">
-              Select Blind
-            </button>
+            <button class="button primary" data-profile="blind">Select Blind</button>
           </article>
-
           <article class="option-card">
             <span class="icon">👂</span>
             <h3>Deaf</h3>
             <p>Hearing impairment: Partial hearing loss or total deafness.</p>
-            <button class="button primary" data-profile="deaf">
-              Select Deaf
-            </button>
+            <button class="button primary" data-profile="deaf">Select Deaf</button>
           </article>
-
           <article class="option-card">
             <span class="icon">🗣️</span>
             <h3>Mute / Nonverbal</h3>
             <p>Speech impairment: Difficulty or inability to speak.</p>
-            <button class="button primary" data-profile="mute">
-              Select Mute / Nonverbal
-            </button>
+            <button class="button primary" data-profile="mute">Select Mute / Nonverbal</button>
           </article>
         </div>
       </section>
 
-      <!-- Custom profile dashboard -->
+      <!-- Dashboard -->
       <section id="dashboard" class="card" hidden>
         <div class="dashboard-header">
           <div>
             <h2>Your Support Tools</h2>
             <p id="profileDescription"></p>
           </div>
-
           <button id="changeProfileButton" class="button" type="button">
             Change Selection
           </button>
         </div>
-
         <div id="toolsGrid" class="tools-grid"></div>
-
         <p id="dashboardStatus" role="status" aria-live="polite"></p>
       </section>
     </main>
@@ -393,48 +300,34 @@
   <script>
     const EMERGENCY_NUMBER = "8891072007";
 
-    let audioContext = null;
-    let oscillator = null;
-    let alarmInterval = null;
-
-    // For Deaf & Mute hand-signal camera
-    let cameraStream = null;
-    let handCamera = null;
-    let lastDetectedPhrase = "";
-    let lastSpokenAt = 0;
-
-    // For Blind simple video
+    let audioContext = null, oscillator = null, alarmInterval = null;
+    let cameraStream = null, handCamera = null;
+    let lastDetectedSign = "", lastSpokenAt = 0;
     let blindStream = null;
 
     const $ = (id) => document.getElementById(id);
 
-    function setDashboardStatus(message) {
-      $("dashboardStatus").textContent = message;
+    function setDashboardStatus(msg) {
+      $("dashboardStatus").textContent = msg;
     }
 
-    /* ----------------- Emergency ----------------- */
+    /* ---------- Emergency ---------- */
 
     function startAlarm() {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
-
         oscillator.type = "square";
         oscillator.frequency.value = 880;
         gain.gain.value = 0.9;
-
         oscillator.connect(gain);
         gain.connect(audioContext.destination);
         oscillator.start();
-
         alarmInterval = setInterval(() => {
-          oscillator.frequency.value =
-            oscillator.frequency.value === 880 ? 1100 : 880;
+          oscillator.frequency.value = oscillator.frequency.value === 880 ? 1100 : 880;
         }, 300);
-      } catch (error) {
-        console.log("Alarm could not start.", error);
-      }
+      } catch (e) { console.log("Alarm could not start.", e); }
     }
 
     function stopAlarm() {
@@ -443,64 +336,49 @@
         if (oscillator) oscillator.stop();
         if (oscillator) oscillator.disconnect();
         if (audioContext) audioContext.close();
-      } catch (error) {}
+      } catch (e) {}
       oscillator = null;
       audioContext = null;
     }
 
     function getLiveLocation(callback) {
-      const statusBox = $("emergencyStatus");
-      statusBox.hidden = false;
-      statusBox.className = "status-message info";
-      statusBox.textContent = "📍 Getting your live location...";
+      const box = $("emergencyStatus");
+      box.hidden = false;
+      box.className = "status-message info";
+      box.textContent = "📍 Getting your live location...";
 
       if (!navigator.geolocation) {
-        statusBox.className = "status-message error";
-        statusBox.textContent = "Location is not supported by this browser.";
+        box.className = "status-message error";
+        box.textContent = "Location is not supported by this browser.";
         callback(null);
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const latitude = position.coords.latitude;
-          const longitude = position.coords.longitude;
-          const locationUrl =
-            "https://maps.google.com/?q=" + latitude + "," + longitude;
-
-          statusBox.className = "status-message success";
-          statusBox.textContent = "✓ Location found. Opening emergency call...";
-          callback(locationUrl);
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const url = "https://maps.google.com/?q=" + lat + "," + lon;
+          box.className = "status-message success";
+          box.textContent = "✓ Location found. Opening emergency call...";
+          callback(url);
         },
         () => {
-          statusBox.className = "status-message error";
-          statusBox.textContent =
-            "Location was unavailable. Opening emergency call...";
+          box.className = "status-message error";
+          box.textContent = "Location was unavailable. Opening emergency call...";
           callback(null);
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
       getLiveLocation((locationUrl) => {
-        const emergencyMessage =
+        const msg =
           "EMERGENCY: I need immediate help." +
           (locationUrl ? " My location: " + locationUrl : "");
-
-        console.log(
-          "SMS backup:",
-          "sms:" +
-            EMERGENCY_NUMBER +
-            "?body=" +
-            encodeURIComponent(emergencyMessage)
-        );
-
+        console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
         setTimeout(() => {
           stopAlarm();
           window.location.href = "tel:" + EMERGENCY_NUMBER;
@@ -508,67 +386,47 @@
       });
     });
 
-    /* ----------------- Text to speech ----------------- */
+    /* ---------- TTS ---------- */
 
     function speak(text) {
       if (!("speechSynthesis" in window)) {
         setDashboardStatus("Text-to-speech is not supported in this browser.");
         return;
       }
-
       window.speechSynthesis.cancel();
-
-      const message = new SpeechSynthesisUtterance(text);
-      message.rate = 0.9;
-      message.volume = 1;
-      message.lang = "en-IN";
-
-      window.speechSynthesis.speak(message);
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.9;
+      u.volume = 1;
+      u.lang = "en-IN";
+      window.speechSynthesis.speak(u);
       setDashboardStatus("Speaking: " + text);
     }
 
-    /* ----------------- Live location by SMS ----------------- */
+    /* ---------- Location by SMS ---------- */
 
     function shareLocationBySms() {
       setDashboardStatus("Requesting live location...");
-
       if (!navigator.geolocation) {
         setDashboardStatus("Location is not supported in this browser.");
         return;
       }
-
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const latitude = position.coords.latitude;
-          const longitude = position.coords.longitude;
-          const mapUrl =
-            "https://maps.google.com/?q=" + latitude + "," + longitude;
-
-          const text = "My live location: " + mapUrl;
-          window.location.href =
-            "sms:" +
-            EMERGENCY_NUMBER +
-            "?body=" +
-            encodeURIComponent(text);
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const url = "https://maps.google.com/?q=" + lat + "," + lon;
+          const text = "My live location: " + url;
+          window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(text);
         },
-        () => {
-          setDashboardStatus(
-            "Could not get location. Please allow location permission."
-          );
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        () => setDashboardStatus("Could not get location. Please allow location permission."),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
-    /* ----------------- Large text screen ----------------- */
+    /* ---------- Large message overlay ---------- */
 
     function showLargeMessage(message) {
       const overlay = document.createElement("div");
-      overlay.className = "large-help-message";
       overlay.style.cssText =
         "position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:30px;color:#fff;background:#111;font-size:clamp(2.5rem,11vw,8rem);font-weight:900;text-align:center;cursor:pointer;";
       overlay.textContent = message + " — Tap anywhere to close";
@@ -578,54 +436,107 @@
       document.body.appendChild(overlay);
     }
 
-    /* ----------------- Hand signal recognition (Deaf & Mute) ----------------- */
+    /* ---------- Hand / Sign recognition (extended gestures) ---------- */
 
-    function isFingerUp(landmarks, tipIndex, pipIndex) {
-      return landmarks[tipIndex].y < landmarks[pipIndex].y;
+    // Basic helpers
+    function isFingerUp(landmarks, tip, pip) {
+      return landmarks[tip].y < landmarks[pip].y;
     }
 
-    function recognizeSimpleHandSignal(landmarks) {
-      const thumbUp =
-        landmarks[4].y < landmarks[3].y &&
-        landmarks[4].y < landmarks[2].y;
-
-      const thumbDown =
-        landmarks[4].y > landmarks[3].y &&
-        landmarks[4].y > landmarks[2].y;
-
+    function fingerTipsExtended(landmarks) {
       const indexUp = isFingerUp(landmarks, 8, 6);
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
       const pinkyUp = isFingerUp(landmarks, 20, 18);
+      return [indexUp, middleUp, ringUp, pinkyUp];
+    }
 
-      const raisedFingers =
-        [indexUp, middleUp, ringUp, pinkyUp].filter(Boolean).length;
+    function thumbDirection(landmarks) {
+      // thumb tip (4), ip joint (3), cmc (2)
+      if (landmarks[4].y < landmarks[3].y && landmarks[4].y < landmarks[2].y) return "up";
+      if (landmarks[4].y > landmarks[3].y && landmarks[4].y > landmarks[2].y) return "down";
+      return "mid";
+    }
 
-      if (raisedFingers === 4) return "Hello";
-      if (raisedFingers === 0 && !thumbUp && !thumbDown) return "Help me";
-      if (thumbUp && raisedFingers === 0) return "Yes";
-      if (thumbDown && raisedFingers === 0) return "No";
+    /**
+     * Extended gesture set (static signs only).
+     * This is NOT a full sign-language translator.
+     * It maps some common hand shapes to words/phrases.
+     */
+    function recognizeSignFromLandmarks(landmarks) {
+      const tips = fingerTipsExtended(landmarks);
+      const raisedCount = tips.filter(Boolean).length;
+      const thumbDir = thumbDirection(landmarks);
 
+      // Open palm: all 4 fingers up, thumb roughly mid/up
+      if (raisedCount === 4 && thumbDir !== "down") {
+        return "Hello";
+      }
+
+      // Fist: all fingers down, thumb not clearly up/down
+      if (raisedCount === 0 && thumbDir === "mid") {
+        return "Help me";
+      }
+
+      // Thumbs up
+      if (raisedCount === 0 && thumbDir === "up") {
+        return "Yes";
+      }
+
+      // Thumbs down
+      if (raisedCount === 0 && thumbDir === "down") {
+        return "No";
+      }
+
+      // Index finger only up -> "I" / "Me"
+      if (raisedCount === 1 && tips[0]) {
+        return "Me";
+      }
+
+      // Index + Middle up (others down) -> "Victory" / "Two"
+      if (raisedCount === 2 && tips[0] && tips[1]) {
+        return "Two";
+      }
+
+      // Index + Middle + Ring up -> "Three"
+      if (raisedCount === 3 && tips[0] && tips[1] && tips[2]) {
+        return "Three";
+      }
+
+      // All four fingers up + thumb clearly up -> "Five"
+      if (raisedCount === 4 && thumbDir === "up") {
+        return "Five";
+      }
+
+      // Pinky up only -> "Small" / "Little"
+      if (raisedCount === 1 && tips[3]) {
+        return "Small";
+      }
+
+      // Thumb + Pinky up (others down) -> "Call me" gesture
+      if (raisedCount === 1 && tips[3] && thumbDir !== "mid") {
+        return "Call me";
+      }
+
+      // Default: unknown / no clear sign
       return "";
     }
 
-    function speakDetectedSignal(phrase) {
+    function speakDetectedSign(signText) {
       const now = Date.now();
-      if (
-        phrase === lastDetectedPhrase &&
-        now - lastSpokenAt < 2500
-      ) {
-        return;
-      }
-      lastDetectedPhrase = phrase;
+      if (signText === lastDetectedSign && now - lastSpokenAt < 2500) return;
+
+      lastDetectedSign = signText;
       lastSpokenAt = now;
 
       const signResult = $("signResult");
       if (signResult) {
-        signResult.textContent = "Detected hand signal: " + phrase;
+        signResult.textContent = "Detected sign: " + signText;
       }
-      speak(phrase);
+      speak(signText);
     }
+
+    /* ---------- Camera for sign/gesture recognition (Deaf & Mute) ---------- */
 
     async function startSignCamera() {
       const video = $("signVideo");
@@ -638,11 +549,7 @@
         signResult.textContent = "Requesting camera permission...";
 
         cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
 
@@ -652,9 +559,7 @@
         const context = canvas.getContext("2d");
 
         const hands = new Hands({
-          locateFile: (file) => {
-            return "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file;
-          }
+          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
         });
 
         hands.setOptions({
@@ -672,49 +577,35 @@
           context.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.multiHandLandmarks?.length) {
-            const landmarks = results.multiHandLandmarks[0];
+            const lm = results.multiHandLandmarks[0];
 
-            drawConnectors(
-              context,
-              landmarks,
-              HAND_CONNECTIONS,
-              { color: "#00ff88", lineWidth: 4 }
-            );
+            drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
+            drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
 
-            drawLandmarks(context, landmarks, {
-              color: "#ff3344",
-              lineWidth: 2,
-              radius: 4
-            });
-
-            const phrase = recognizeSimpleHandSignal(landmarks);
-            if (phrase) {
-              speakDetectedSignal(phrase);
+            const sign = recognizeSignFromLandmarks(lm);
+            if (sign) {
+              speakDetectedSign(sign);
             } else {
               signResult.textContent =
-                "Hand detected. Try open palm, fist, thumbs up, or thumbs down.";
+                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two fingers, three, five, pinky up, call-me.";
             }
           } else {
-            signResult.textContent =
-              "No hand detected. Keep one hand visible to the camera.";
+            signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
           }
 
           context.restore();
         });
 
         handCamera = new Camera(video, {
-          onFrame: async () => {
-            await hands.send({ image: video });
-          },
+          onFrame: async () => { await hands.send({ image: video }); },
           width: 1280,
           height: 720
         });
 
         handCamera.start();
-        signResult.textContent =
-          "Camera started. Show a supported hand signal.";
-      } catch (error) {
-        console.error(error);
+        signResult.textContent = "Camera started. Show a hand sign.";
+      } catch (err) {
+        console.error(err);
         signResult.textContent =
           "Camera could not start. Allow camera permission and use HTTPS or localhost.";
       }
@@ -722,16 +613,14 @@
 
     function stopSignCamera() {
       if (cameraStream) {
-        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream.getTracks().forEach((t) => t.stop());
         cameraStream = null;
       }
       if (handCamera) {
         handCamera.stop();
         handCamera = null;
       }
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
       const video = $("signVideo");
       const canvas = $("signCanvas");
@@ -739,40 +628,30 @@
 
       if (video) video.srcObject = null;
       if (canvas) {
-        const context = canvas.getContext("2d");
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
-      if (signResult) {
-        signResult.textContent = "Camera stopped.";
-      }
+      if (signResult) signResult.textContent = "Camera stopped.";
     }
 
-    /* ----------------- Blind: simple video only ----------------- */
+    /* ---------- Blind: simple video only ---------- */
 
     async function startBlindVideo() {
       const video = $("blindVideo");
       const status = $("blindStatus");
-
       if (!video) return;
 
       try {
         status.textContent = "Requesting camera permission...";
-
         blindStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
-
         video.srcObject = blindStream;
         await video.play();
-
         status.textContent = "Video is on. This is a simple camera preview.";
-      } catch (error) {
-        console.error(error);
+      } catch (e) {
+        console.error(e);
         status.textContent =
           "Camera could not start. Allow camera permission and use HTTPS or localhost.";
       }
@@ -780,7 +659,7 @@
 
     function stopBlindVideo() {
       if (blindStream) {
-        blindStream.getTracks().forEach((track) => track.stop());
+        blindStream.getTracks().forEach((t) => t.stop());
         blindStream = null;
       }
       const video = $("blindVideo");
@@ -789,12 +668,11 @@
       if (status) status.textContent = "Video is off.";
     }
 
-    /* ----------------- Profiles ----------------- */
+    /* ---------- Profiles ---------- */
 
     const profiles = {
       blind: {
-        description:
-          "Blind profile: simple video preview only.",
+        description: "Blind profile: simple video preview only.",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">📹</span>
@@ -810,13 +688,8 @@
             </p>
 
             <div class="camera-controls">
-              <button id="startBlindButton" class="button primary" type="button">
-                Start Video
-              </button>
-
-              <button id="stopBlindButton" class="button" type="button">
-                Stop Video
-              </button>
+              <button id="startBlindButton" class="button primary" type="button">Start Video</button>
+              <button id="stopBlindButton" class="button" type="button">Stop Video</button>
             </div>
 
             <p class="note">
@@ -828,42 +701,28 @@
 
       deaf: {
         description:
-          "Deaf profile: visual help messages, live-location sharing, and simple hand-signal-to-voice recognition.",
+          "Deaf profile: visual alerts, live location, and extended hand‑sign to voice (prototype).",
         tools: `
           <article class="tool-card">
             <span class="icon">💡</span>
             <h3>Visual Alert</h3>
             <p>Show a large help message to nearby people.</p>
-
-            <button
-              class="button primary"
-              data-large-message="I NEED HELP"
-            >
-              Show Help Message
-            </button>
+            <button class="button primary" data-large-message="I NEED HELP">Show Help Message</button>
           </article>
 
           <article class="tool-card">
             <span class="icon">📍</span>
             <h3>Live Location</h3>
             <p>Send your Google Maps location by SMS.</p>
-
-            <button
-              class="button primary"
-              data-location
-            >
-              Share Live Location
-            </button>
+            <button class="button primary" data-location>Share Live Location</button>
           </article>
 
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Hand Signal to Voice</h3>
-
+            <h3>Hand Sign to Voice (Extended)</h3>
             <p>
-              Starts your camera and reads supported simple hand signals aloud.
-              Supported signals: open palm = Hello, closed fist = Help me,
-              thumbs up = Yes, thumbs down = No.
+              Camera-based gesture recognizer. Supported signs include:
+              Hello, Help me, Yes, No, Me, Two, Three, Five, Small, Call me.
             </p>
 
             <div class="camera-wrap">
@@ -876,17 +735,12 @@
             </p>
 
             <div class="camera-controls">
-              <button id="startCameraButton" class="button primary" type="button">
-                Start Camera
-              </button>
-
-              <button id="stopCameraButton" class="button" type="button">
-                Stop Camera
-              </button>
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
             </div>
 
             <p class="note">
-              This is a simple prototype and not a full sign-language translator.
+              This is an extended gesture prototype, not a full sign-language translator.
             </p>
           </article>
         `
@@ -894,15 +748,14 @@
 
       mute: {
         description:
-          "Mute / Nonverbal profile: text-to-speech phrase board, live location, visual help cards, and hand-signal-to-voice.",
+          "Mute / Nonverbal profile: phrase board, live location, visual help, and extended hand‑sign to voice.",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">💬</span>
             <h3>Communication Board</h3>
-
             <p>Tap a phrase and the device will speak it aloud.</p>
 
-            <div class="phrase-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;">
               <button class="button" data-phrase="I need help">I need help</button>
               <button class="button" data-phrase="I need water">I need water</button>
               <button class="button" data-phrase="I am in pain">I am in pain</button>
@@ -920,33 +773,24 @@
             <span class="icon">📍</span>
             <h3>Live Location</h3>
             <p>Send your Google Maps location by SMS.</p>
-
-            <button class="button primary" data-location>
-              Share Live Location
-            </button>
+            <button class="button primary" data-location>Share Live Location</button>
           </article>
 
           <article class="tool-card">
             <span class="icon">🪧</span>
             <h3>Help Card</h3>
             <p>Show a large message for people nearby.</p>
-
-            <button
-              class="button primary"
-              data-large-message="I CANNOT SPEAK. PLEASE HELP ME."
-            >
+            <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">
               Show Help Card
             </button>
           </article>
 
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Hand Signal to Voice</h3>
-
+            <h3>Hand Sign to Voice (Extended)</h3>
             <p>
-              Starts your camera and reads supported simple hand signals aloud.
-              Supported signals: open palm = Hello, closed fist = Help me,
-              thumbs up = Yes, thumbs down = No.
+              Camera-based gesture recognizer. Supported signs include:
+              Hello, Help me, Yes, No, Me, Two, Three, Five, Small, Call me.
             </p>
 
             <div class="camera-wrap">
@@ -959,17 +803,12 @@
             </p>
 
             <div class="camera-controls">
-              <button id="startCameraButton" class="button primary" type="button">
-                Start Camera
-              </button>
-
-              <button id="stopCameraButton" class="button" type="button">
-                Stop Camera
-              </button>
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
             </div>
 
             <p class="note">
-              This is a simple prototype and not a full sign-language translator.
+              This is an extended gesture prototype, not a full sign-language translator.
             </p>
           </article>
         `
@@ -977,7 +816,6 @@
     };
 
     function renderProfile(profileName) {
-      // Stop any running cameras before switching profile
       stopSignCamera();
       stopBlindVideo();
 
@@ -992,58 +830,41 @@
 
       $("dashboard").scrollIntoView({ behavior: "smooth" });
 
-      // Buttons that speak text
-      document.querySelectorAll("[data-speak], [data-phrase]").forEach((button) => {
-        button.addEventListener("click", () => {
-          speak(button.dataset.speak || button.dataset.phrase);
-        });
+      // Speak buttons
+      document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
+        btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
       });
 
       // Location buttons
-      document.querySelectorAll("[data-location]").forEach((button) => {
-        button.addEventListener("click", shareLocationBySms);
+      document.querySelectorAll("[data-location]").forEach((btn) => {
+        btn.addEventListener("click", shareLocationBySms);
       });
 
       // Large message buttons
-      document.querySelectorAll("[data-large-message]").forEach((button) => {
-        button.addEventListener("click", () => {
-          showLargeMessage(button.dataset.largeMessage);
-        });
+      document.querySelectorAll("[data-large-message]").forEach((btn) => {
+        btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
 
-      // Blind video controls
+      // Blind video
       const startBlindButton = $("startBlindButton");
       const stopBlindButton = $("stopBlindButton");
+      if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
+      if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
 
-      if (startBlindButton) {
-        startBlindButton.addEventListener("click", startBlindVideo);
-      }
-      if (stopBlindButton) {
-        stopBlindButton.addEventListener("click", stopBlindVideo);
-      }
-
-      // Hand-signal camera controls (Deaf & Mute)
+      // Sign camera
       const startCameraButton = $("startCameraButton");
       const stopCameraButton = $("stopCameraButton");
-
-      if (startCameraButton) {
-        startCameraButton.addEventListener("click", startSignCamera);
-      }
-      if (stopCameraButton) {
-        stopCameraButton.addEventListener("click", stopSignCamera);
-      }
+      if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
+      if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
     }
 
-    document.querySelectorAll("[data-profile]").forEach((button) => {
-      button.addEventListener("click", () => {
-        renderProfile(button.dataset.profile);
-      });
+    document.querySelectorAll("[data-profile]").forEach((btn) => {
+      btn.addEventListener("click", () => renderProfile(btn.dataset.profile));
     });
 
     $("changeProfileButton").addEventListener("click", () => {
       stopSignCamera();
       stopBlindVideo();
-
       $("dashboard").hidden = true;
       $("selectionSection").hidden = false;
       $("selectionSection").scrollIntoView({ behavior: "smooth" });
