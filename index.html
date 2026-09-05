@@ -652,7 +652,7 @@
       lastSpokenAt = 0;
     }
 
-    /* ---------- Blind: simple video only (AUTO-START) ---------- */
+    /* ---------- Blind: Camera + Mic AUTO-START ---------- */
 
     async function startBlindVideo() {
       const video = $("blindVideo");
@@ -660,20 +660,37 @@
       if (!video) return;
 
       try {
-        status.textContent = "📹 Requesting camera permission...";
+        status.textContent = "📹🎤 Requesting camera and microphone permissions...";
+        setDashboardStatus("Requesting camera and microphone access...");
+        
         blindStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
+          audio: { echoCancellation: true, noiseSuppression: true }
         });
+        
         video.srcObject = blindStream;
         await video.play();
-        status.textContent = "✓ Camera is ON. You are seeing the live video feed.";
-        setDashboardStatus("Camera started automatically for Blind profile.");
+        
+        status.textContent = "✓ Camera and microphone are ON. Live video with audio enabled.";
+        setDashboardStatus("Camera and microphone started automatically for Blind profile.");
+        
+        // Optional: Announce to user via TTS
+        speak("Camera and microphone are now on. You can see and be heard.");
+        
       } catch (e) {
         console.error(e);
-        status.textContent =
-          "⚠️ Camera could not start. Allow camera permission and use HTTPS or localhost.";
-        setDashboardStatus("Camera permission denied or unavailable.");
+        let errorMsg = "⚠️ ";
+        
+        if (e.name === "NotAllowedError") {
+          errorMsg += "Permission denied. Please allow camera and microphone in browser settings.";
+        } else if (e.name === "NotFoundError") {
+          errorMsg += "No camera or microphone found on this device.";
+        } else {
+          errorMsg += "Could not start. Allow permissions and use HTTPS or localhost.";
+        }
+        
+        status.textContent = errorMsg;
+        setDashboardStatus("Camera/microphone permission denied or unavailable.");
       }
     }
 
@@ -685,35 +702,36 @@
       const video = $("blindVideo");
       const status = $("blindStatus");
       if (video) video.srcObject = null;
-      if (status) status.textContent = "Camera is OFF.";
+      if (status) status.textContent = "Camera and microphone are OFF.";
+      setDashboardStatus("Camera and microphone stopped.");
     }
 
     /* ---------- Profiles ---------- */
 
     const profiles = {
       blind: {
-        description: "Blind profile: Camera starts automatically for live video preview.",
+        description: "Blind profile: Camera and microphone start automatically for full sensory support.",
         tools: `
           <article class="tool-card full-width">
-            <span class="icon">📹</span>
-            <h3>Live Camera (Auto-Start)</h3>
-            <p>Camera turns on automatically when you select Blind profile.</p>
+            <span class="icon">📹🎤</span>
+            <h3>Live Camera + Mic (Auto-Start)</h3>
+            <p>Camera and microphone turn on automatically when you select Blind profile.</p>
 
             <div class="camera-wrap">
-              <video id="blindVideo" autoplay playsinline muted></video>
+              <video id="blindVideo" autoplay playsinline></video>
             </div>
 
             <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
-              Starting camera...
+              Starting camera and microphone...
             </p>
 
             <div class="camera-controls">
-              <button id="stopBlindButton" class="button" type="button">Stop Camera</button>
-              <button id="restartBlindButton" class="button primary" type="button">Restart Camera</button>
+              <button id="stopBlindButton" class="button" type="button">Stop Camera & Mic</button>
+              <button id="restartBlindButton" class="button primary" type="button">Restart Camera & Mic</button>
             </div>
 
             <p class="note">
-              Camera starts automatically for immediate use. You can stop or restart it anytime.
+              Camera and microphone start automatically for immediate use. You can stop or restart them anytime.
             </p>
           </article>
         `
@@ -877,7 +895,7 @@
       if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
       if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
 
-      // AUTO-START camera for Blind profile
+      // AUTO-START camera and mic for Blind profile
       if (profileName === "blind") {
         setTimeout(() => {
           startBlindVideo();
