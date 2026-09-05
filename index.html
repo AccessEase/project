@@ -234,10 +234,11 @@
     }
   </style>
 
-  <!-- MediaPipe Gesture Recognizer -->
+  <!-- MediaPipe Gesture Recognizer + Camera utils -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/gesture_recognizer/gesture_recognizer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head>
+
 <body>
   <div class="container">
     <header>
@@ -441,11 +442,8 @@
     /* ---------- Gesture Recognizer mapping to emoji ---------- */
 
     function mapGestureToSign(gestureName, handedness) {
-      // gestureName examples: "Closed_fist", "Open_palm", "Thumb_up", "Thumb_down",
-      // "Index_finger_up", "Index_finger_and_thumb_facing_each_other", etc.
       const g = gestureName || "";
 
-      // Basic mapping; you can extend this.
       if (g.includes("Open_palm")) {
         return { label: "Hello", emoji: "👋" };
       }
@@ -477,7 +475,6 @@
         return { label: "Call me", emoji: "🤙" };
       }
 
-      // Fallback: no clear mapping
       return null;
     }
 
@@ -518,7 +515,7 @@
       );
 
       gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
-        maxNumHands: 1, // focus on one hand
+        maxNumHands: 1,
         modelComplexity: 1,
         minHandDetectionConfidence: 0.8,
         minHandPresenceConfidence: 0.8,
@@ -536,7 +533,6 @@
 
       if (!video) return;
 
-      // Reset state
       lastDetectedSign = "";
       lastSpokenAt = 0;
       signResult.textContent = "Initializing gesture recognizer...";
@@ -555,10 +551,8 @@
         await video.play();
 
         const onResults = (results) => {
-          // results.gestures: array of detected gestures (up to maxNumHands)
           if (results.gestures && results.gestures.length > 0) {
-            // Use first gesture only (single-hand focus)
-            const gestureList = results.gestures[0]; // each is [{categoryName, score, index, displayName}]
+            const gestureList = results.gestures[0];
             if (gestureList.length > 0) {
               const top = gestureList[0];
               const gestureName = top.categoryName || top.displayName || "";
@@ -579,7 +573,6 @@
           }
         };
 
-        // Use MediaPipe Camera utility with GestureRecognizer
         camera = new Camera(video, {
           onFrame: async () => {
             if (!gestureRecognizer) return;
@@ -822,28 +815,23 @@
 
       $("dashboard").scrollIntoView({ behavior: "smooth" });
 
-      // Speak buttons
       document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
         btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
       });
 
-      // Location buttons
       document.querySelectorAll("[data-location]").forEach((btn) => {
         btn.addEventListener("click", shareLocationBySms);
       });
 
-      // Large message buttons
       document.querySelectorAll("[data-large-message]").forEach((btn) => {
         btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
 
-      // Blind video
       const startBlindButton = $("startBlindButton");
       const stopBlindButton = $("stopBlindButton");
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
 
-      // Gesture camera
       const startCameraButton = $("startCameraButton");
       const stopCameraButton = $("stopCameraButton");
       if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
