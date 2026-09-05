@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#075bc8" />
-  <title>AccessAble | Gesture to Phrases</title>
+  <title>AccessAble | Hand Sign to Voice (Single Hand + Emoji)</title>
 
   <style>
     :root {
@@ -190,6 +190,11 @@
       max-height: 460px;
       object-fit: cover;
     }
+    #signCanvas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
 
     .camera-controls {
       display: flex;
@@ -234,11 +239,11 @@
     }
   </style>
 
-  <!-- MediaPipe Gesture Recognizer + Camera utils -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/gesture_recognizer/gesture_recognizer.js"></script>
+  <!-- MediaPipe for hand tracking -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head>
-
 <body>
   <div class="container">
     <header>
@@ -304,8 +309,13 @@
     const EMERGENCY_NUMBER = "8891072007";
 
     let audioContext = null, oscillator = null, alarmInterval = null;
-    let camera = null, gestureRecognizer = null;
-    let lastDetectedPhrase = "", lastSpokenAt = 0;
+    let cameraStream = null, handCamera = null;
+
+    // For single-hand locking
+    let lockedHandId = null;       // not used directly here, but conceptually we lock to first hand
+    let lastDetectedSign = "";
+    let lastSpokenAt = 0;
+
     let blindStream = null;
 
     const $ = (id) => document.getElementById(id);
@@ -439,142 +449,193 @@
       document.body.appendChild(overlay);
     }
 
-    /* ---------- Gesture → Phrase mapping (custom set) ---------- */
+    /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
 
-    /**
-     * Map MediaPipe gesture names to your custom phrases.
-     *
-     * Current mapping:
-     * - Open_palm         → "Please"
-     * - Closed_fist       → "Water"
-     * - Index_finger_up   → "What's your name?"
-     * - Victory           → "What are you doing?"
-     */
-    function mapGestureToPhrase(gestureName, handedness) {
-      const g = gestureName || "";
+    function isFingerUp(landmarks, tipIndex, pipIndex) {
+      // tip above pip (smaller y) and with some margin
+      return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
+    }
 
-      if (g.includes("Open_palm")) {
-        return { phrase: "Please", emoji: "🙏" };
-      }
-      if (g.includes("Closed_fist")) {
-        return { phrase: "Water", emoji: "💧" };
-      }
-      if (g.includes("Index_finger_up")) {
-        return { phrase: "What's your name?", emoji: "❓" };
-      }
-      if (g.includes("Victory")) {
-        return { phrase: "What are you doing?", emoji: "🤔" };
+    function thumbDirection(landmarks) {
+      // thumb: 4 (tip), 3 (ip), 2 (cmc)
+      const tip = landmarks[4];
+      const ip = landmarks[3];
+      const cmc = landmarks[2];
+
+      if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
+      if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
+      return "mid";
+    }
+
+    function recognizeSignFromLandmarks(landmarks) {
+      // Fingers: index(8,6), middle(12,10), ring(16,14), pinky(20,18)
+      const indexUp = isFingerUp(landmarks, 8, 6);
+      const middleUp = isFingerUp(landmarks, 12, 10);
+      const ringUp = isFingerUp(landmarks, 16, 14);
+      const pinkyUp = isFingerUp(landmarks, 20, 18);
+
+      const tips = [indexUp, middleUp, ringUp, pinkyUp];
+      const raisedCount = tips.filter(Boolean).length;
+      const thumbDir = thumbDirection(landmarks);
+
+      // Open palm: all 4 fingers up, thumb not down
+      if (raisedCount === 4 && thumbDir !== "down") {
+        return { label: "Hello", emoji: "👋" };
       }
 
+      // Fist: all fingers down, thumb mid
+      if (raisedCount === 0 && thumbDir === "mid") {
+        return { label: "Help me", emoji: "🆘" };
+      }
+
+      // Thumbs up
+      if (raisedCount === 0 && thumbDir === "up") {
+        return { label: "Yes", emoji: "👍" };
+      }
+
+      // Thumbs down
+      if (raisedCount === 0 && thumbDir === "down") {
+        return { label: "No", emoji: "👎" };
+      }
+
+      // Index up only -> "Me"
+      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { label: "Me", emoji: "☝️" };
+      }
+
+      // Index + Middle up -> "Two"
+      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
+        return { label: "Two", emoji: "✌️" };
+      }
+
+      // Index + Middle + Ring up -> "Three"
+      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
+        return { label: "Three", emoji: "🤟" };
+      }
+
+      // All four fingers up + thumb up -> "Five"
+      if (raisedCount === 4 && thumbDir === "up") {
+        return { label: "Five", emoji: "🖐️" };
+      }
+
+      // Pinky up only -> "Small"
+      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
+        return { label: "Small", emoji: "🤏" };
+      }
+
+      // Thumb + Pinky up (others down) -> "Call me"
+      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
+        return { label: "Call me", emoji: "🤙" };
+      }
+
+      // No clear sign
       return null;
     }
 
-    function speakDetectedPhrase(phraseObj) {
+    function speakDetectedSign(signObj) {
       const now = Date.now();
       if (
-        phraseObj &&
-        phraseObj.phrase === lastDetectedPhrase &&
+        signObj &&
+        signObj.label === lastDetectedSign &&
         now - lastSpokenAt < 2500
       ) {
         return;
       }
-      if (!phraseObj) return;
 
-      lastDetectedPhrase = phraseObj.phrase;
+      if (!signObj) return;
+
+      lastDetectedSign = signObj.label;
       lastSpokenAt = now;
 
       const signResult = $("signResult");
       if (signResult) {
         signResult.innerHTML =
           '<span class="sign-emoji" aria-hidden="true">' +
-          phraseObj.emoji +
-          '</span>Detected: ' +
-          phraseObj.phrase +
-          " (" + phraseObj.emoji + ")";
+          signObj.emoji +
+          '</span>Detected sign: ' +
+          signObj.label +
+          " (" + signObj.emoji + ")";
       }
 
-      speak(phraseObj.phrase);
+      speak(signObj.label);
     }
 
-    /* ---------- Initialize Gesture Recognizer ---------- */
-
-    async function initGestureRecognizer() {
-      if (gestureRecognizer) return gestureRecognizer;
-
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/gesture_recognizer@latest/wasm"
-      );
-
-      gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minHandDetectionConfidence: 0.8,
-        minHandPresenceConfidence: 0.8,
-        minTrackingConfidence: 0.5
-      });
-
-      return gestureRecognizer;
-    }
-
-    /* ---------- Camera for gesture recognition (Deaf & Mute) ---------- */
+    /* ---------- Camera for sign/gesture recognition (Deaf & Mute) ---------- */
 
     async function startSignCamera() {
       const video = $("signVideo");
+      const canvas = $("signCanvas");
       const signResult = $("signResult");
 
-      if (!video) return;
+      if (!video || !canvas) return;
 
-      lastDetectedPhrase = "";
+      // Reset state
+      lockedHandId = null;
+      lastDetectedSign = "";
       lastSpokenAt = 0;
-      signResult.textContent = "Initializing gesture recognizer...";
 
       try {
-        await initGestureRecognizer();
-
         signResult.textContent = "Requesting camera permission...";
 
-        const stream = await navigator.mediaDevices.getUserMedia({
+        cameraStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
 
-        video.srcObject = stream;
+        video.srcObject = cameraStream;
         await video.play();
 
-        const onResults = (results) => {
-          if (results.gestures && results.gestures.length > 0) {
-            const gestureList = results.gestures[0];
-            if (gestureList.length > 0) {
-              const top = gestureList[0];
-              const gestureName = top.categoryName || top.displayName || "";
-              const handedness = results.handedness?.[0]?.[0]?.categoryName || "";
+        const context = canvas.getContext("2d");
 
-              const phraseObj = mapGestureToPhrase(gestureName, handedness);
-              if (phraseObj) {
-                speakDetectedPhrase(phraseObj);
-              } else {
-                signResult.textContent =
-                  "Hand detected. Try: open palm, closed fist, index finger up, or victory sign.";
-              }
+        const hands = new Hands({
+          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+        });
+
+        // Focus on one hand only
+        hands.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.8,
+          minTrackingConfidence: 0.8
+        });
+
+        hands.onResults((results) => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+
+          context.save();
+          context.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            // Use the first detected hand only (single-hand focus)
+            const lm = results.multiHandLandmarks[0];
+
+            // Optionally, you could use results.multiHandedness[0].label to know left/right.
+
+            drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
+            drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
+
+            const signObj = recognizeSignFromLandmarks(lm);
+            if (signObj) {
+              speakDetectedSign(signObj);
             } else {
-              signResult.textContent = "Hand detected but no clear gesture.";
+              signResult.textContent =
+                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two, three, five, pinky up, call-me.";
             }
           } else {
             signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
           }
-        };
 
-        camera = new Camera(video, {
-          onFrame: async () => {
-            if (!gestureRecognizer) return;
-            const results = await gestureRecognizer.recognize(video);
-            onResults(results);
-          },
+          context.restore();
+        });
+
+        handCamera = new Camera(video, {
+          onFrame: async () => { await hands.send({ image: video }); },
           width: 1280,
           height: 720
         });
 
-        camera.start();
+        handCamera.start();
         signResult.textContent = "Camera started. Show a hand sign.";
       } catch (err) {
         console.error(err);
@@ -584,28 +645,29 @@
     }
 
     function stopSignCamera() {
-      if (camera) {
-        camera.stop();
-        camera = null;
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+        cameraStream = null;
       }
-      if (gestureRecognizer) {
-        gestureRecognizer.close();
-        gestureRecognizer = null;
+      if (handCamera) {
+        handCamera.stop();
+        handCamera = null;
       }
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
       const video = $("signVideo");
+      const canvas = $("signCanvas");
       const signResult = $("signResult");
 
-      if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach((t) => t.stop());
-        video.srcObject = null;
+      if (video) video.srcObject = null;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
       if (signResult) signResult.textContent = "Camera stopped.";
 
-      lastDetectedPhrase = "";
+      lockedHandId = null;
+      lastDetectedSign = "";
       lastSpokenAt = 0;
     }
 
@@ -639,10 +701,7 @@
       }
       const video = $("blindVideo");
       const status = $("blindStatus");
-      if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach((t) => t.stop());
-        video.srcObject = null;
-      }
+      if (video) video.srcObject = null;
       if (status) status.textContent = "Video is off.";
     }
 
@@ -679,7 +738,7 @@
 
       deaf: {
         description:
-          "Deaf profile: visual alerts, live location, and MediaPipe Gesture Recognizer mapped to custom phrases.",
+          "Deaf profile: visual alerts, live location, and hand‑sign to voice with emoji (prototype).",
         tools: `
           <article class="tool-card">
             <span class="icon">💡</span>
@@ -697,18 +756,15 @@
 
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Gesture to Phrases</h3>
+            <h3>Hand Sign to Voice (Emoji)</h3>
             <p>
-              Uses MediaPipe Gesture Recognizer (single hand).
-              Mapped gestures:
-              Open palm 🙏 → “Please”,
-              Closed fist 💧 → “Water”,
-              Index up ❓ → “What’s your name?”,
-              Victory 🤔 → “What are you doing?”.
+              Camera-based gesture recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
             </p>
 
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
             </div>
 
             <p id="signResult" class="sign-result" role="status" aria-live="polite">
@@ -721,7 +777,7 @@
             </div>
 
             <p class="note">
-              This is a gesture-based prototype, not a full sign-language translator.
+              This is an extended gesture prototype, not a full sign-language translator.
             </p>
           </article>
         `
@@ -729,7 +785,7 @@
 
       mute: {
         description:
-          "Mute / Nonverbal profile: phrase board, live location, visual help, and gesture-to-phrases.",
+          "Mute / Nonverbal profile: phrase board, live location, visual help, and hand‑sign to voice with emoji.",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">💬</span>
@@ -768,18 +824,15 @@
 
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Gesture to Phrases</h3>
+            <h3>Hand Sign to Voice (Emoji)</h3>
             <p>
-              Uses MediaPipe Gesture Recognizer (single hand).
-              Mapped gestures:
-              Open palm 🙏 → “Please”,
-              Closed fist 💧 → “Water”,
-              Index up ❓ → “What’s your name?”,
-              Victory 🤔 → “What are you doing?”.
+              Camera-based gesture recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
             </p>
 
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
             </div>
 
             <p id="signResult" class="sign-result" role="status" aria-live="polite">
@@ -792,7 +845,7 @@
             </div>
 
             <p class="note">
-              This is a gesture-based prototype, not a full sign-language translator.
+              This is an extended gesture prototype, not a full sign-language translator.
             </p>
           </article>
         `
@@ -814,23 +867,28 @@
 
       $("dashboard").scrollIntoView({ behavior: "smooth" });
 
+      // Speak buttons
       document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
         btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
       });
 
+      // Location buttons
       document.querySelectorAll("[data-location]").forEach((btn) => {
         btn.addEventListener("click", shareLocationBySms);
       });
 
+      // Large message buttons
       document.querySelectorAll("[data-large-message]").forEach((btn) => {
         btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
 
+      // Blind video
       const startBlindButton = $("startBlindButton");
       const stopBlindButton = $("stopBlindButton");
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
 
+      // Sign camera
       const startCameraButton = $("startCameraButton");
       const stopCameraButton = $("stopCameraButton");
       if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
