@@ -305,6 +305,7 @@
       font-size: 0.95rem;
     }
 
+    /* Mobile-specific optimizations */
     @media (max-width: 480px) {
       .container {
         width: 100%;
@@ -334,16 +335,19 @@
       }
     }
 
+    /* Prevent text selection on buttons */
     button, .button {
       user-select: none;
       -webkit-user-select: none;
     }
 
+    /* Smooth scrolling */
     html {
       scroll-behavior: smooth;
     }
   </style>
 
+  <!-- MediaPipe for hand tracking -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
@@ -356,6 +360,7 @@
     </header>
 
     <main>
+      <!-- Emergency -->
       <section class="emergency-box">
         <h2>🚨 EMERGENCY HELP</h2>
         <p>Alarm, live location, and call support</p>
@@ -365,6 +370,7 @@
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
+      <!-- Selection -->
       <section id="selectionSection" class="card">
         <h2>Select Your Primary Need</h2>
         <p>Choose one option. The matching tools open immediately.</p>
@@ -390,6 +396,7 @@
         </div>
       </section>
 
+      <!-- Dashboard -->
       <section id="dashboard" class="card" hidden>
         <div class="dashboard-header">
           <div>
@@ -411,8 +418,11 @@
 
     let audioContext = null, oscillator = null, alarmInterval = null;
     let cameraStream = null, handCamera = null;
+
+    let lockedHandId = null;
     let lastDetectedSign = "";
     let lastSpokenAt = 0;
+
     let blindStream = null;
 
     const $ = (id) => document.getElementById(id);
@@ -420,6 +430,8 @@
     function setDashboardStatus(msg) {
       $("dashboardStatus").textContent = msg;
     }
+
+    /* ---------- Emergency ---------- */
 
     function startAlarm() {
       try {
@@ -483,7 +495,9 @@
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
       getLiveLocation((locationUrl) => {
-        const msg = "EMERGENCY: I need immediate help." + (locationUrl ? " My location: " + locationUrl : "");
+        const msg =
+          "EMERGENCY: I need immediate help." +
+          (locationUrl ? " My location: " + locationUrl : "");
         console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
         setTimeout(() => {
           stopAlarm();
@@ -492,9 +506,11 @@
       });
     });
 
+    /* ---------- TTS ---------- */
+
     function speak(text) {
       if (!("speechSynthesis" in window)) {
-        setDashboardStatus("Text-to-speech not supported.");
+        setDashboardStatus("Text-to-speech is not supported in this browser.");
         return;
       }
       window.speechSynthesis.cancel();
@@ -506,10 +522,12 @@
       setDashboardStatus("Speaking: " + text);
     }
 
+    /* ---------- Location by SMS ---------- */
+
     function shareLocationBySms() {
-      setDashboardStatus("Requesting location...");
+      setDashboardStatus("Requesting live location...");
       if (!navigator.geolocation) {
-        setDashboardStatus("Location not supported.");
+        setDashboardStatus("Location is not supported by this browser.");
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -520,10 +538,12 @@
           const text = "My live location: " + url;
           window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(text);
         },
-        () => setDashboardStatus("Could not get location. Allow permission."),
+        () => setDashboardStatus("Could not get location. Please allow location permission."),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
+
+    /* ---------- Large message overlay ---------- */
 
     function showLargeMessage(message) {
       const overlay = document.createElement("div");
@@ -536,6 +556,8 @@
       document.body.appendChild(overlay);
     }
 
+    /* ---------- Hand / Sign recognition ---------- */
+
     function isFingerUp(landmarks, tipIndex, pipIndex) {
       return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
     }
@@ -544,6 +566,7 @@
       const tip = landmarks[4];
       const ip = landmarks[3];
       const cmc = landmarks[2];
+
       if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
       if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
       return "mid";
@@ -554,127 +577,232 @@
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
       const pinkyUp = isFingerUp(landmarks, 20, 18);
+
       const tips = [indexUp, middleUp, ringUp, pinkyUp];
       const raisedCount = tips.filter(Boolean).length;
       const thumbDir = thumbDirection(landmarks);
 
-      if (raisedCount === 4 && thumbDir !== "down") return { label: "Hello", emoji: "👋" };
-      if (raisedCount === 0 && thumbDir === "mid") return { label: "Help me", emoji: "🆘" };
-      if (raisedCount === 0 && thumbDir === "up") return { label: "Yes", emoji: "👍" };
-      if (raisedCount === 0 && thumbDir === "down") return { label: "No", emoji: "👎" };
-      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) return { label: "Me", emoji: "☝️" };
-      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) return { label: "Two", emoji: "✌️" };
-      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) return { label: "Three", emoji: "🤟" };
-      if (raisedCount === 4 && thumbDir === "up") return { label: "Five", emoji: "🖐️" };
-      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) return { label: "Small", emoji: "🤏" };
-      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") return { label: "Call me", emoji: "🤙" };
+      if (raisedCount === 4 && thumbDir !== "down") {
+        return { label: "Hello", emoji: "👋" };
+      }
+      if (raisedCount === 0 && thumbDir === "mid") {
+        return { label: "Help me", emoji: "🆘" };
+      }
+      if (raisedCount === 0 && thumbDir === "up") {
+        return { label: "Yes", emoji: "👍" };
+      }
+      if (raisedCount === 0 && thumbDir === "down") {
+        return { label: "No", emoji: "👎" };
+      }
+      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { label: "Me", emoji: "☝️" };
+      }
+      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
+        return { label: "Two", emoji: "✌️" };
+      }
+      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
+        return { label: "Three", emoji: "🤟" };
+      }
+      if (raisedCount === 4 && thumbDir === "up") {
+        return { label: "Five", emoji: "🖐️" };
+      }
+      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
+        return { label: "Small", emoji: "🤏" };
+      }
+      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
+        return { label: "Call me", emoji: "🤙" };
+      }
+
       return null;
     }
 
     function speakDetectedSign(signObj) {
       const now = Date.now();
-      if (signObj && signObj.label === lastDetectedSign && now - lastSpokenAt < 2500) return;
+      if (
+        signObj &&
+        signObj.label === lastDetectedSign &&
+        now - lastSpokenAt < 2500
+      ) {
+        return;
+      }
+
       if (!signObj) return;
+
       lastDetectedSign = signObj.label;
       lastSpokenAt = now;
+
       const signResult = $("signResult");
       if (signResult) {
-        signResult.innerHTML = '<span class="sign-emoji">' + signObj.emoji + '</span>Detected: ' + signObj.label + " " + signObj.emoji;
+        signResult.innerHTML =
+          '<span class="sign-emoji" aria-hidden="true">' +
+          signObj.emoji +
+          '</span>Detected: ' +
+          signObj.label +
+          " " + signObj.emoji;
       }
+
       speak(signObj.label);
     }
+
+    /* ---------- Camera for sign/gesture recognition ---------- */
 
     async function startSignCamera() {
       const video = $("signVideo");
       const canvas = $("signCanvas");
       const signResult = $("signResult");
-      if (!video || !canvas) { console.error("Video or canvas not found"); return; }
 
+      if (!video || !canvas) {
+        console.error("Video or canvas element not found");
+        return;
+      }
+
+      lockedHandId = null;
       lastDetectedSign = "";
       lastSpokenAt = 0;
 
       try {
         signResult.textContent = "Requesting camera...";
+
         cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { 
+            facingMode: "user", 
+            width: { ideal: 640 }, 
+            height: { ideal: 480 } 
+          },
           audio: false
         });
+
         video.srcObject = cameraStream;
         await video.play();
+
         const context = canvas.getContext("2d");
 
-        const hands = new Hands({ locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+        const hands = new Hands({
+          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+        });
+
+        hands.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.7,
+          minTrackingConfidence: 0.7
+        });
 
         hands.onResults((results) => {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
+
           context.save();
           context.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
             const lm = results.multiHandLandmarks[0];
+
             drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 3 });
             drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 3 });
+
             const signObj = recognizeSignFromLandmarks(lm);
-            if (signObj) speakDetectedSign(signObj);
-            else signResult.textContent = "Show: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️";
+            if (signObj) {
+              speakDetectedSign(signObj);
+            } else {
+              signResult.textContent =
+                "Hand detected. Try: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️";
+            }
           } else {
-            signResult.textContent = "Show your hand to camera";
+            signResult.textContent = "Show your hand to the camera";
           }
+
           context.restore();
         });
 
-        handCamera = new Camera(video, { onFrame: async () => { await hands.send({ image: video }); }, width: 640, height: 480 });
+        handCamera = new Camera(video, {
+          onFrame: async () => { await hands.send({ image: video }); },
+          width: 640,
+          height: 480
+        });
+
         handCamera.start();
-        signResult.textContent = "Camera ready. Show a sign.";
+        signResult.textContent = "Camera ready. Show a hand sign.";
       } catch (err) {
         console.error("Camera error:", err);
-        signResult.innerHTML = '<strong style="color:#991b1b;">Camera failed</strong><br>Allow permission. Use HTTPS.<br><button class="button primary" onclick="startSignCamera()" style="margin-top:10px;">Try Again</button>';
+        signResult.innerHTML =
+          '<strong style="color:#991b1b;">Camera failed</strong><br>' +
+          'Allow camera permission. Use HTTPS or localhost.<br>' +
+          '<button class="button primary" onclick="startSignCamera()" style="margin-top:10px;">Try Again</button>';
       }
     }
 
     function stopSignCamera() {
-      if (cameraStream) { cameraStream.getTracks().forEach((t) => t.stop()); cameraStream = null; }
-      if (handCamera) { handCamera.stop(); handCamera = null; }
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+        cameraStream = null;
+      }
+      if (handCamera) {
+        handCamera.stop();
+        handCamera = null;
+      }
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
       const video = $("signVideo");
       const canvas = $("signCanvas");
       const signResult = $("signResult");
+
       if (video) video.srcObject = null;
-      if (canvas) { const ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
       if (signResult) signResult.textContent = "Camera stopped.";
+
+      lockedHandId = null;
       lastDetectedSign = "";
       lastSpokenAt = 0;
     }
 
+    /* ---------- Blind: simple video ---------- */
+
     async function startBlindVideo() {
       const video = $("blindVideo");
       const status = $("blindStatus");
-      if (!video) { console.error("Video not found"); return; }
+      if (!video) {
+        console.error("Blind video element not found");
+        return;
+      }
 
       try {
         status.textContent = "Requesting camera...";
         blindStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { 
+            facingMode: "user", 
+            width: { ideal: 640 }, 
+            height: { ideal: 480 } 
+          },
           audio: false
         });
         video.srcObject = blindStream;
         await video.play();
         status.textContent = "✓ Video is on";
       } catch (e) {
-        console.error("Video error:", e);
-        status.innerHTML = '<strong style="color:#991b1b;">Camera failed</strong><br>Allow permission.<br><button class="button primary" onclick="startBlindVideo()" style="margin-top:10px;">Try Again</button>';
+        console.error("Blind video error:", e);
+        status.innerHTML =
+          '<strong style="color:#991b1b;">Camera failed</strong><br>' +
+          'Allow camera permission. Use HTTPS or localhost.<br>' +
+          '<button class="button primary" onclick="startBlindVideo()" style="margin-top:10px;">Try Again</button>';
       }
     }
 
     function stopBlindVideo() {
-      if (blindStream) { blindStream.getTracks().forEach((t) => t.stop()); blindStream = null; }
+      if (blindStream) {
+        blindStream.getTracks().forEach((t) => t.stop());
+        blindStream = null;
+      }
       const video = $("blindVideo");
       const status = $("blindStatus");
       if (video) video.srcObject = null;
       if (status) status.textContent = "Video is off.";
     }
+
+    /* ---------- Profiles ---------- */
 
     const profiles = {
       blind: {
@@ -684,10 +812,15 @@
             <span class="icon">📹</span>
             <h3>Camera Preview</h3>
             <p>Turn on camera for video preview.</p>
+
             <div class="camera-wrap">
               <video id="blindVideo" autoplay playsinline muted></video>
             </div>
-            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">Video is off.</p>
+
+            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
+              Video is off.
+            </p>
+
             <div class="camera-controls">
               <button id="startBlindButton" class="button primary" type="button">Start Camera</button>
               <button id="stopBlindButton" class="button" type="button">Stop Camera</button>
@@ -695,6 +828,7 @@
           </article>
         `
       },
+
       deaf: {
         description: "Visual alerts, location, hand signs",
         tools: `
@@ -704,21 +838,28 @@
             <p>Show large help message.</p>
             <button class="button primary" data-large-message="I NEED HELP">Show Help</button>
           </article>
+
           <article class="tool-card">
             <span class="icon">📍</span>
             <h3>Location</h3>
             <p>Send location by SMS.</p>
             <button class="button primary" data-location>Share Location</button>
           </article>
+
           <article class="tool-card full-width">
             <span class="icon">📷</span>
             <h3>Hand Sign to Voice</h3>
-            <p>Show: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call 🤙</p>
+            <p>Show hand signs: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call 🤙</p>
+
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
               <canvas id="signCanvas"></canvas>
             </div>
-            <p id="signResult" class="sign-result" role="status" aria-live="polite">Camera is off.</p>
+
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
+              Camera is off.
+            </p>
+
             <div class="camera-controls">
               <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
               <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
@@ -726,6 +867,7 @@
           </article>
         `
       },
+
       mute: {
         description: "Phrase board, location, hand signs",
         tools: `
@@ -733,6 +875,7 @@
             <span class="icon">💬</span>
             <h3>Phrase Board</h3>
             <p>Tap to speak phrases aloud.</p>
+
             <div class="phrase-grid">
               <button class="button" data-phrase="I need help">I need help</button>
               <button class="button" data-phrase="I need water">I need water</button>
@@ -742,27 +885,35 @@
               <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">സഹായം വേണം</button>
             </div>
           </article>
+
           <article class="tool-card">
             <span class="icon">📍</span>
             <h3>Location</h3>
             <p>Send location by SMS.</p>
             <button class="button primary" data-location>Share Location</button>
           </article>
+
           <article class="tool-card">
             <span class="icon">🪧</span>
             <h3>Help Card</h3>
             <p>Show large message.</p>
             <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">Show Card</button>
           </article>
+
           <article class="tool-card full-width">
             <span class="icon">📷</span>
             <h3>Hand Sign to Voice</h3>
-            <p>Show: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️</p>
+            <p>Show hand signs: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️</p>
+
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
               <canvas id="signCanvas"></canvas>
             </div>
-            <p id="signResult" class="sign-result" role="status" aria-live="polite">Camera is off.</p>
+
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
+              Camera is off.
+            </p>
+
             <div class="camera-controls">
               <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
               <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
@@ -775,20 +926,26 @@
     function renderProfile(profileName) {
       stopSignCamera();
       stopBlindVideo();
+
       const profile = profiles[profileName];
       localStorage.setItem("accessEaseProfile", profileName);
+
       $("selectionSection").hidden = true;
       $("dashboard").hidden = false;
+
       $("profileDescription").textContent = profile.description;
       $("toolsGrid").innerHTML = profile.tools;
+
       $("dashboard").scrollIntoView({ behavior: "smooth" });
 
       document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
         btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
       });
+
       document.querySelectorAll("[data-location]").forEach((btn) => {
         btn.addEventListener("click", shareLocationBySms);
       });
+
       document.querySelectorAll("[data-large-message]").forEach((btn) => {
         btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
@@ -820,7 +977,9 @@
 
     window.addEventListener("DOMContentLoaded", () => {
       const savedProfile = localStorage.getItem("accessEaseProfile");
-      if (savedProfile && profiles[savedProfile]) renderProfile(savedProfile);
+      if (savedProfile && profiles[savedProfile]) {
+        renderProfile(savedProfile);
+      }
     });
 
     window.addEventListener("beforeunload", () => {
