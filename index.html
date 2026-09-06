@@ -664,4 +664,457 @@
       const scenarios = {
         busyStreet: {
           keywords: ["street", "road", "traffic", "car", "bus", "bike", "vehicle", "horn", "busy"],
-          description: "You are on a busy street with active traffic. Vehicles are moving around you, possibly with honking sounds. There may be pedestrians nearby. Stay alert while crossing and listen for approaching vehic
+          description: "You are on a busy street with active traffic. Vehicles are moving around you, possibly with honking sounds. There may be pedestrians nearby. Stay alert while crossing and listen for approaching vehicles. The environment is likely noisy with engine sounds."
+        },
+        quietIndoor: {
+          keywords: ["room", "inside", "house", "quiet", "silent", "calm", "indoor", "home", "bedroom"],
+          description: "You are inside a quiet indoor space, likely a room in a house or building. The environment is calm with minimal background noise. There might be furniture around you. Air may feel still. This is a safe, controlled environment with few immediate hazards."
+        },
+        market: {
+          keywords: ["market", "shop", "store", "mall", "crowd", "people", "buying", "selling", "vendor"],
+          description: "You are in a marketplace or shopping area with many people. There are likely vendors, customers, and various activities around you. Expect background chatter, movement, and possibly announcements. Keep your belongings secure and be aware of people moving in all directions."
+        },
+        park: {
+          keywords: ["park", "garden", "tree", "trees", "grass", "plant", "nature", "outdoor", "open"],
+          description: "You are in an outdoor green space like a park or garden. Trees and plants surround you, possibly with birds or natural sounds. The area is likely peaceful with fresh air. There may be walking paths, benches, or other people enjoying the outdoors."
+        },
+        office: {
+          keywords: ["office", "work", "meeting", "colleague", "desk", "computer", "workplace"],
+          description: "You are in an office or workplace environment. There may be desks, computers, and colleagues around. Expect typical office sounds like typing, phone calls, or conversations. The space is structured with defined areas for work activities."
+        },
+        classroom: {
+          keywords: ["class", "school", "college", "student", "teacher", "lesson", "study"],
+          description: "You are in an educational setting like a classroom. There are likely students, a teacher, and learning materials around. The environment may have desks arranged in rows or groups. Listen for instructions or discussions related to the lesson."
+        },
+        restaurant: {
+          keywords: ["restaurant", "food", "eat", "dining", "table", "menu", "waiter"],
+          description: "You are in a dining establishment with tables, chairs, and possibly other diners. There may be sounds of cutlery, conversations, and kitchen activity. Staff might be moving around serving food. The smell of food is likely present."
+        },
+        night: {
+          keywords: ["night", "dark", "evening", "darkness", "late"],
+          description: "It is nighttime or a dark environment. Visibility is reduced, so rely more on hearing and touch. There may be artificial lighting from street lamps or buildings. Stay cautious of obstacles and be aware that fewer people might be around."
+        },
+        crowd: {
+          keywords: ["crowd", "crowded", "many people", "group", "gathering", "event"],
+          description: "You are in a crowded area with many people nearby. There is likely significant background noise from conversations and movement. Personal space is limited. Be mindful of your belongings and stay oriented to avoid getting separated from your intended path."
+        },
+        home: {
+          keywords: ["home", "house", "family", "living room", "kitchen", "cooking"],
+          description: "You are at home with family members possibly around. The environment is familiar and safe. There may be household sounds like cooking, TV, or daily activities. This is your personal space where you can navigate comfortably."
+        }
+      };
+
+      // Score each scenario
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const [scenario, data] of Object.entries(scenarios)) {
+        let score = 0;
+        for (const keyword of data.keywords) {
+          if (input.includes(keyword)) {
+            score++;
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = data.description;
+        }
+      }
+
+      // Default descriptions if no strong match
+      if (bestScore === 0) {
+        const defaults = [
+          "Based on what you've described, you seem to be in a typical everyday environment. Stay aware of sounds, air movement, and any changes around you. Your other senses will help you navigate safely.",
+          "The surroundings appear to be a standard indoor or outdoor space. Listen carefully for echoes, footsteps, or other audio cues that reveal the size and nature of the area you're in.",
+          "Your environment seems normal with no immediate unusual features. Continue to pay attention to background sounds, temperature changes, and air flow to understand your surroundings better."
+        ];
+        return defaults[Math.floor(Math.random() * defaults.length)];
+      }
+
+      return bestMatch;
+    }
+
+    function setupSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        setDashboardStatus("Speech recognition is not supported in this browser. Use Chrome or Edge.");
+        return null;
+      }
+
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.lang = "en-IN";
+
+      recognitionInstance.onstart = () => {
+        isListening = true;
+        const status = $("blindStatus");
+        if (status) {
+          status.textContent = "🎤 Listening... Tell me what's happening around you.\n\nExamples:\n• 'I'm on a busy street with cars'\n• 'Inside a quiet room at home'\n• 'At a market with many people'";
+          status.className = "sign-result info";
+        }
+        setDashboardStatus("Listening to your description...");
+      };
+
+      recognitionInstance.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        const confidence = event.results[0][0].confidence;
+        
+        console.log("Heard:", transcript, "Confidence:", confidence);
+        
+        // Generate surrounding description
+        const description = generateSurroundingDescription(transcript);
+        
+        const status = $("blindStatus");
+        if (status) {
+          status.textContent = "✓ You said: \"" + transcript + "\"\n\n📝 Surrounding Sketch:\n" + description;
+          status.className = "sign-result success";
+        }
+        
+        // Speak the description
+        speak(description);
+        setDashboardStatus("Described your surroundings (" + description.split(" ").length + " words).");
+      };
+
+      recognitionInstance.onerror = (event) => {
+        isListening = false;
+        const status = $("blindStatus");
+        if (status) {
+          if (event.error === "no-speech") {
+            status.textContent = "No speech detected. Try speaking clearly about your surroundings.";
+          } else if (event.error === "not-allowed") {
+            status.textContent = "Microphone permission denied. Please allow microphone access.";
+          } else {
+            status.textContent = "Error: " + event.error + ". Try again.";
+          }
+          status.className = "sign-result error";
+        }
+        setDashboardStatus("Speech recognition error: " + event.error);
+      };
+
+      recognitionInstance.onend = () => {
+        isListening = false;
+        const status = $("blindStatus");
+        if (status && status.textContent.includes("Listening")) {
+          status.textContent = "Microphone ready. Tap 'Describe Surroundings' to start.";
+          status.className = "sign-result";
+        }
+      };
+
+      return recognitionInstance;
+    }
+
+    function startBlindDescription() {
+      if (!recognition) {
+        recognition = setupSpeechRecognition();
+        if (!recognition) {
+          setDashboardStatus("Speech recognition not supported. Use Chrome browser.");
+          return;
+        }
+      }
+
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error("Recognition start error:", e);
+        if (e.name === "InvalidStateError") {
+          recognition.stop();
+          setTimeout(() => recognition.start(), 100);
+        }
+      }
+    }
+
+    function stopBlindDescription() {
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (e) {
+          console.error("Recognition stop error:", e);
+        }
+      }
+      isListening = false;
+    }
+
+    async function startBlindVideo() {
+      const video = $("blindVideo");
+      const status = $("blindStatus");
+      if (!video) return;
+
+      try {
+        status.textContent = "📹🎤 Requesting camera and microphone permissions...";
+        setDashboardStatus("Requesting camera and microphone access...");
+        
+        blindStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: { echoCancellation: true, noiseSuppression: true }
+        });
+        
+        video.srcObject = blindStream;
+        video.muted = true; // FIXED: Mute video to prevent echo
+        await video.play();
+        
+        status.textContent = "✓ Camera and microphone are ON. No echo - tap 'Describe Surroundings' to tell what's happening.";
+        setDashboardStatus("Camera and microphone started. Video muted to prevent echo.");
+        
+        // Setup speech recognition
+        recognition = setupSpeechRecognition();
+        
+        speak("Camera and microphone are now on. Video is muted to prevent echo. Tap Describe Surroundings button to tell me what's happening.");
+        
+      } catch (e) {
+        console.error(e);
+        let errorMsg = "⚠️ ";
+        
+        if (e.name === "NotAllowedError") {
+          errorMsg += "Permission denied. Please allow camera and microphone in browser settings.";
+        } else if (e.name === "NotFoundError") {
+          errorMsg += "No camera or microphone found on this device.";
+        } else {
+          errorMsg += "Could not start. Allow permissions and use HTTPS or localhost.";
+        }
+        
+        status.textContent = errorMsg;
+        setDashboardStatus("Camera/microphone permission denied or unavailable.");
+      }
+    }
+
+    function stopBlindVideo() {
+      if (blindStream) {
+        blindStream.getTracks().forEach((t) => t.stop());
+        blindStream = null;
+      }
+      stopBlindDescription();
+      const video = $("blindVideo");
+      const status = $("blindStatus");
+      if (video) video.srcObject = null;
+      if (status) status.textContent = "Camera and microphone are OFF.";
+      setDashboardStatus("Camera and microphone stopped.");
+    }
+
+    /* ---------- Profiles ---------- */
+
+    const profiles = {
+      blind: {
+        description: "Blind profile: Camera, mic, and AI-powered surrounding descriptions from your voice. No echo.",
+        tools: `
+          <article class="tool-card full-width">
+            <span class="icon">📹🎤</span>
+            <h3>Live Camera + Mic + Surroundings AI</h3>
+            <p>Camera and microphone start automatically. Video is muted to prevent echo. Tell what's happening to get a detailed description.</p>
+
+            <div class="camera-wrap">
+              <video id="blindVideo" autoplay playsinline muted></video>
+            </div>
+
+            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
+              Starting camera and microphone...
+            </p>
+
+            <div class="camera-controls">
+              <button id="describeButton" class="button primary" type="button">🎤 Describe Surroundings</button>
+              <button id="stopBlindButton" class="button" type="button">Stop Camera & Mic</button>
+              <button id="restartBlindButton" class="button primary" type="button">Restart Camera & Mic</button>
+            </div>
+
+            <p class="note">
+              Say things like:<br>
+              • "I'm on a busy street with cars and traffic"<br>
+              • "Inside a quiet room at home"<br>
+              • "At a market with many people shopping"<br>
+              • "In a park with trees and birds"<br>
+              Get a 30-50 word detailed sketch of your surroundings.
+            </p>
+          </article>
+        `
+      },
+
+      deaf: {
+        description:
+          "Deaf profile: visual alerts, live location, and hand‑sign to voice with emoji (prototype).",
+        tools: `
+          <article class="tool-card">
+            <span class="icon">💡</span>
+            <h3>Visual Alert</h3>
+            <p>Show a large help message to nearby people.</p>
+            <button class="button primary" data-large-message="I NEED HELP">Show Help Message</button>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">📍</span>
+            <h3>Live Location</h3>
+            <p>Send your Google Maps location by SMS.</p>
+            <button class="button primary" data-location>Share Live Location</button>
+          </article>
+
+          <article class="tool-card full-width">
+            <span class="icon">📷</span>
+            <h3>Hand Sign to Voice (Emoji)</h3>
+            <p>
+              Camera-based gesture recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
+            </p>
+
+            <div class="camera-wrap">
+              <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
+            </div>
+
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
+              Camera is off.
+            </p>
+
+            <div class="camera-controls">
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
+            </div>
+
+            <p class="note">
+              This is an extended gesture prototype, not a full sign-language translator.
+            </p>
+          </article>
+        `
+      },
+
+      mute: {
+        description:
+          "Mute / Nonverbal profile: phrase board, live location, visual help, and hand‑sign to voice with emoji.",
+        tools: `
+          <article class="tool-card full-width">
+            <span class="icon">💬</span>
+            <h3>Communication Board</h3>
+            <p>Tap a phrase and the device will speak it aloud.</p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;">
+              <button class="button" data-phrase="I need help">I need help</button>
+              <button class="button" data-phrase="I need water">I need water</button>
+              <button class="button" data-phrase="I am in pain">I am in pain</button>
+              <button class="button" data-phrase="Please call my family">Please call my family</button>
+              <button class="button" data-phrase="Thank you">Thank you</button>
+              <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">എനിക്ക് സഹായം വേണം</button>
+            </div>
+
+            <p class="note" style="margin-top:10px;">
+              Tap any button above to speak that phrase.
+            </p>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">📍</span>
+            <h3>Live Location</h3>
+            <p>Send your Google Maps location by SMS.</p>
+            <button class="button primary" data-location>Share Live Location</button>
+          </article>
+
+          <article class="tool-card">
+            <span class="icon">🪧</span>
+            <h3>Help Card</h3>
+            <p>Show a large message for people nearby.</p>
+            <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">
+              Show Help Card
+            </button>
+          </article>
+
+          <article class="tool-card full-width">
+            <span class="icon">📷</span>
+            <h3>Hand Sign to Voice (Emoji)</h3>
+            <p>
+              Camera-based gesture recognizer (single hand).
+              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
+            </p>
+
+            <div class="camera-wrap">
+              <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
+            </div>
+
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
+              Camera is off.
+            </p>
+
+            <div class="camera-controls">
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
+            </div>
+
+            <p class="note">
+              This is an extended gesture prototype, not a full sign-language translator.
+            </p>
+          </article>
+        `
+      }
+    };
+
+    function renderProfile(profileName) {
+      stopSignCamera();
+      stopBlindVideo();
+
+      const profile = profiles[profileName];
+      localStorage.setItem("accessAbleProfile", profileName);
+
+      $("selectionSection").hidden = true;
+      $("dashboard").hidden = false;
+
+      $("profileDescription").textContent = profile.description;
+      $("toolsGrid").innerHTML = profile.tools;
+
+      $("dashboard").scrollIntoView({ behavior: "smooth" });
+
+      // Speak buttons
+      document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
+        btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
+      });
+
+      // Location buttons
+      document.querySelectorAll("[data-location]").forEach((btn) => {
+        btn.addEventListener("click", shareLocationBySms);
+      });
+
+      // Large message buttons
+      document.querySelectorAll("[data-large-message]").forEach((btn) => {
+        btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
+      });
+
+      // Blind video controls
+      const describeButton = $("describeButton");
+      const stopBlindButton = $("stopBlindButton");
+      const restartBlindButton = $("restartBlindButton");
+      
+      if (describeButton) describeButton.addEventListener("click", startBlindDescription);
+      if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
+      if (restartBlindButton) restartBlindButton.addEventListener("click", startBlindVideo);
+
+      // Sign camera
+      const startCameraButton = $("startCameraButton");
+      const stopCameraButton = $("stopCameraButton");
+      if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
+      if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
+
+      // AUTO-START camera and mic for Blind profile
+      if (profileName === "blind") {
+        setTimeout(() => {
+          startBlindVideo();
+        }, 500);
+      }
+    }
+
+    document.querySelectorAll("[data-profile]").forEach((btn) => {
+      btn.addEventListener("click", () => renderProfile(btn.dataset.profile));
+    });
+
+    $("changeProfileButton").addEventListener("click", () => {
+      stopSignCamera();
+      stopBlindVideo();
+      $("dashboard").hidden = true;
+      $("selectionSection").hidden = false;
+      $("selectionSection").scrollIntoView({ behavior: "smooth" });
+    });
+
+    window.addEventListener("beforeunload", () => {
+      stopAlarm();
+      stopSignCamera();
+      stopBlindVideo();
+    });
+  </script>
+</body>
+</html>
