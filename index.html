@@ -312,7 +312,7 @@
     let cameraStream = null, handCamera = null;
 
     // For single-hand locking
-    let lockedHandId = null;       // not used directly here, but conceptually we lock to first hand
+    let lockedHandId = null;
     let lastDetectedSign = "";
     let lastSpokenAt = 0;
 
@@ -420,7 +420,7 @@
     function shareLocationBySms() {
       setDashboardStatus("Requesting live location...");
       if (!navigator.geolocation) {
-        setDashboardStatus("Location is not supported in this browser.");
+        setDashboardStatus("Location is not supported by this browser.");
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -452,12 +452,10 @@
     /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
 
     function isFingerUp(landmarks, tipIndex, pipIndex) {
-      // tip above pip (smaller y) and with some margin
       return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
     }
 
     function thumbDirection(landmarks) {
-      // thumb: 4 (tip), 3 (ip), 2 (cmc)
       const tip = landmarks[4];
       const ip = landmarks[3];
       const cmc = landmarks[2];
@@ -468,7 +466,6 @@
     }
 
     function recognizeSignFromLandmarks(landmarks) {
-      // Fingers: index(8,6), middle(12,10), ring(16,14), pinky(20,18)
       const indexUp = isFingerUp(landmarks, 8, 6);
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
@@ -567,7 +564,10 @@
       const canvas = $("signCanvas");
       const signResult = $("signResult");
 
-      if (!video || !canvas) return;
+      if (!video || !canvas) {
+        console.error("Video or canvas element not found");
+        return;
+      }
 
       // Reset state
       lockedHandId = null;
@@ -591,7 +591,6 @@
           locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
         });
 
-        // Focus on one hand only
         hands.setOptions({
           maxNumHands: 1,
           modelComplexity: 1,
@@ -607,10 +606,7 @@
           context.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            // Use the first detected hand only (single-hand focus)
             const lm = results.multiHandLandmarks[0];
-
-            // Optionally, you could use results.multiHandedness[0].label to know left/right.
 
             drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
             drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
@@ -638,9 +634,11 @@
         handCamera.start();
         signResult.textContent = "Camera started. Show a hand sign.";
       } catch (err) {
-        console.error(err);
-        signResult.textContent =
-          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
+        console.error("Camera error:", err);
+        signResult.innerHTML =
+          '<strong style="color:#991b1b;">Camera could not start.</strong><br>' +
+          'Please allow camera permission and use HTTPS or localhost.<br>' +
+          '<button class="button primary" onclick="startSignCamera()" style="margin-top:10px;">Try Again</button>';
       }
     }
 
@@ -676,7 +674,10 @@
     async function startBlindVideo() {
       const video = $("blindVideo");
       const status = $("blindStatus");
-      if (!video) return;
+      if (!video) {
+        console.error("Blind video element not found");
+        return;
+      }
 
       try {
         status.textContent = "Requesting camera permission...";
@@ -688,9 +689,11 @@
         await video.play();
         status.textContent = "Video is on. This is a simple camera preview.";
       } catch (e) {
-        console.error(e);
-        status.textContent =
-          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
+        console.error("Blind video error:", e);
+        status.innerHTML =
+          '<strong style="color:#991b1b;">Camera could not start.</strong><br>' +
+          'Allow camera permission and use HTTPS or localhost.<br>' +
+          '<button class="button primary" onclick="startBlindVideo()" style="margin-top:10px;">Try Again</button>';
       }
     }
 
@@ -853,6 +856,7 @@
     };
 
     function renderProfile(profileName) {
+      // Stop any running cameras first
       stopSignCamera();
       stopBlindVideo();
 
@@ -888,11 +892,13 @@
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
 
-      // Sign camera
-      const startCameraButton = $("startCameraButton");
-      const stopCameraButton = $("stopCameraButton");
-      if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
-      if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
+      // Sign camera - use setTimeout to ensure DOM is ready
+      setTimeout(() => {
+        const startCameraButton = $("startCameraButton");
+        const stopCameraButton = $("stopCameraButton");
+        if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
+        if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
+      }, 100);
     }
 
     document.querySelectorAll("[data-profile]").forEach((btn) => {
@@ -905,6 +911,14 @@
       $("dashboard").hidden = true;
       $("selectionSection").hidden = false;
       $("selectionSection").scrollIntoView({ behavior: "smooth" });
+    });
+
+    // Load saved profile on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      const savedProfile = localStorage.getItem("accessAbleProfile");
+      if (savedProfile && profiles[savedProfile]) {
+        renderProfile(savedProfile);
+      }
     });
 
     window.addEventListener("beforeunload", () => {
