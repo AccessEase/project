@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#075bc8" />
-  <title>AccessAble | Blind Mode with Environment Sketch</title>
+  <title>AccessAble | Hand Sign to Voice (Single Hand + Emoji)</title>
 
   <style>
     :root {
@@ -184,11 +184,16 @@
       border: 3px solid var(--border);
       border-radius: 14px;
     }
-    #blindVideo {
+    #signVideo, #blindVideo {
       display: block;
       width: 100%;
       max-height: 460px;
       object-fit: cover;
+    }
+    #signCanvas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
     }
 
     .camera-controls {
@@ -212,6 +217,12 @@
       font-size: 1.1rem;
     }
 
+    .sign-emoji {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 8px;
+    }
+
     .note {
       max-width: 700px;
       margin: 16px auto 0;
@@ -228,10 +239,10 @@
     }
   </style>
 
-  <!-- MediaPipe FaceMesh for basic face detection -->
+  <!-- MediaPipe for hand tracking -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head>
 <body>
   <div class="container">
@@ -249,7 +260,6 @@
           🆘 EMERGENCY — CALL FOR HELP
         </button>
         <div id="emergencyStatus" class="status-message" hidden></div>
-        <button id="stopAlarmButton" class="button" type="button" hidden>Stop Alarm</button>
       </section>
 
       <!-- Selection -->
@@ -300,14 +310,13 @@
 
     let audioContext = null, oscillator = null, alarmInterval = null;
     let cameraStream = null, handCamera = null;
-    let blindStream = null;
-    let faceMesh = null;
-    let faceMeshCamera = null;
 
-    // For environment sketch
-    let lastFrameTime = 0;
-    let lastMotionLevel = 0;
-    let faceCount = 0;
+    // For single-hand locking
+    let lockedHandId = null;       // not used directly here, but conceptually we lock to first hand
+    let lastDetectedSign = "";
+    let lastSpokenAt = 0;
+
+    let blindStream = null;
 
     const $ = (id) => document.getElementById(id);
 
@@ -378,7 +387,6 @@
 
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
-      $("stopAlarmButton").hidden = false;
       getLiveLocation((locationUrl) => {
         const msg =
           "EMERGENCY: I need immediate help." +
@@ -386,20 +394,9 @@
         console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
         setTimeout(() => {
           stopAlarm();
-          $("stopAlarmButton").hidden = true;
           window.location.href = "tel:" + EMERGENCY_NUMBER;
         }, 1800);
       });
-    });
-
-    $("stopAlarmButton").addEventListener("click", () => {
-      stopAlarm();
-      $("stopAlarmButton").hidden = true;
-      const box = $("emergencyStatus");
-      if (box) {
-        box.className = "status-message info";
-        box.textContent = "Alarm stopped.";
-      }
     });
 
     /* ---------- TTS ---------- */
@@ -411,7 +408,7 @@
       }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.95;
+      u.rate = 0.9;
       u.volume = 1;
       u.lang = "en-IN";
       window.speechSynthesis.speak(u);
@@ -452,95 +449,229 @@
       document.body.appendChild(overlay);
     }
 
-    /* ---------- Blind: video + environment sketch (no mic, no echo) ---------- */
+    /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
 
-    function computeBrightness(video) {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      const w = video.videoWidth || 320;
-      const h = video.videoHeight || 240;
-      canvas.width = w;
-      canvas.height = h;
-      ctx.drawImage(video, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const data = imageData.data;
-      let sum = 0;
-      const total = data.length / 4;
-      for (let i = 0; i < data.length; i += 4) {
-        // simple luminance approximation
-        const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        sum += y;
+    function isFingerUp(landmarks, tipIndex, pipIndex) {
+      // tip above pip (smaller y) and with some margin
+      return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
+    }
+
+    function thumbDirection(landmarks) {
+      // thumb: 4 (tip), 3 (ip), 2 (cmc)
+      const tip = landmarks[4];
+      const ip = landmarks[3];
+      const cmc = landmarks[2];
+
+      if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
+      if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
+      return "mid";
+    }
+
+    function recognizeSignFromLandmarks(landmarks) {
+      // Fingers: index(8,6), middle(12,10), ring(16,14), pinky(20,18)
+      const indexUp = isFingerUp(landmarks, 8, 6);
+      const middleUp = isFingerUp(landmarks, 12, 10);
+      const ringUp = isFingerUp(landmarks, 16, 14);
+      const pinkyUp = isFingerUp(landmarks, 20, 18);
+
+      const tips = [indexUp, middleUp, ringUp, pinkyUp];
+      const raisedCount = tips.filter(Boolean).length;
+      const thumbDir = thumbDirection(landmarks);
+
+      // Open palm: all 4 fingers up, thumb not down
+      if (raisedCount === 4 && thumbDir !== "down") {
+        return { label: "Hello", emoji: "👋" };
       }
-      const avg = sum / total;
-      return avg; // 0–255
-    }
 
-    function estimateMotion(prevData, currData) {
-      if (!prevData || !currData || prevData.length !== currData.length) return 0;
-      let diffSum = 0;
-      const step = 16; // sample every N bytes for speed
-      let count = 0;
-      for (let i = 0; i < currData.length; i += step) {
-        const d = Math.abs(currData[i] - prevData[i]);
-        diffSum += d;
-        count++;
+      // Fist: all fingers down, thumb mid
+      if (raisedCount === 0 && thumbDir === "mid") {
+        return { label: "Help me", emoji: "🆘" };
       }
-      return diffSum / count;
+
+      // Thumbs up
+      if (raisedCount === 0 && thumbDir === "up") {
+        return { label: "Yes", emoji: "👍" };
+      }
+
+      // Thumbs down
+      if (raisedCount === 0 && thumbDir === "down") {
+        return { label: "No", emoji: "👎" };
+      }
+
+      // Index up only -> "Me"
+      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { label: "Me", emoji: "☝️" };
+      }
+
+      // Index + Middle up -> "Two"
+      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
+        return { label: "Two", emoji: "✌️" };
+      }
+
+      // Index + Middle + Ring up -> "Three"
+      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
+        return { label: "Three", emoji: "🤟" };
+      }
+
+      // All four fingers up + thumb up -> "Five"
+      if (raisedCount === 4 && thumbDir === "up") {
+        return { label: "Five", emoji: "🖐️" };
+      }
+
+      // Pinky up only -> "Small"
+      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
+        return { label: "Small", emoji: "🤏" };
+      }
+
+      // Thumb + Pinky up (others down) -> "Call me"
+      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
+        return { label: "Call me", emoji: "🤙" };
+      }
+
+      // No clear sign
+      return null;
     }
 
-    function getFrameImageData(video) {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      const w = video.videoWidth || 320;
-      const h = video.videoHeight || 240;
-      canvas.width = w;
-      canvas.height = h;
-      ctx.drawImage(video, 0, 0, w, h);
-      return ctx.getImageData(0, 0, w, h).data;
-    }
-
-    let prevBlindFrameData = null;
-
-    function describeEnvironment() {
-      const video = $("blindVideo");
-      const status = $("blindStatus");
-      if (!video || !video.videoWidth) {
-        speak("Camera is not active. Please start video first.");
+    function speakDetectedSign(signObj) {
+      const now = Date.now();
+      if (
+        signObj &&
+        signObj.label === lastDetectedSign &&
+        now - lastSpokenAt < 2500
+      ) {
         return;
       }
 
-      const brightness = computeBrightness(video);
-      const currData = getFrameImageData(video);
-      let motionLevel = 0;
-      if (prevBlindFrameData) {
-        motionLevel = estimateMotion(prevBlindFrameData, currData);
+      if (!signObj) return;
+
+      lastDetectedSign = signObj.label;
+      lastSpokenAt = now;
+
+      const signResult = $("signResult");
+      if (signResult) {
+        signResult.innerHTML =
+          '<span class="sign-emoji" aria-hidden="true">' +
+          signObj.emoji +
+          '</span>Detected sign: ' +
+          signObj.label +
+          " (" + signObj.emoji + ")";
       }
-      prevBlindFrameData = currData;
 
-      // Normalize motion roughly
-      const motionNorm = Math.min(1, motionLevel / 40);
+      speak(signObj.label);
+    }
 
-      let lightDesc = "dim";
-      if (brightness > 180) lightDesc = "bright";
-      else if (brightness > 100) lightDesc = "moderately lit";
+    /* ---------- Camera for sign/gesture recognition (Deaf & Mute) ---------- */
 
-      let motionDesc = "no significant movement";
-      if (motionNorm > 0.15) motionDesc = "some movement in front of you";
-      if (motionNorm > 0.4) motionDesc = "a lot of movement in front of you";
+    async function startSignCamera() {
+      const video = $("signVideo");
+      const canvas = $("signCanvas");
+      const signResult = $("signResult");
 
-      let faceDesc = "";
-      if (faceCount === 1) faceDesc = "one face detected";
-      else if (faceCount > 1) faceDesc = faceCount + " faces detected";
-      else faceDesc = "no faces detected";
+      if (!video || !canvas) return;
 
-      const sketch =
-        "Scene is " + lightDesc + ", with " + motionDesc + ", and " + faceDesc + ".";
+      // Reset state
+      lockedHandId = null;
+      lastDetectedSign = "";
+      lastSpokenAt = 0;
 
-      speak(sketch);
-      if (status) {
-        status.textContent = "Environment: " + sketch;
+      try {
+        signResult.textContent = "Requesting camera permission...";
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+
+        video.srcObject = cameraStream;
+        await video.play();
+
+        const context = canvas.getContext("2d");
+
+        const hands = new Hands({
+          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+        });
+
+        // Focus on one hand only
+        hands.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.8,
+          minTrackingConfidence: 0.8
+        });
+
+        hands.onResults((results) => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+
+          context.save();
+          context.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            // Use the first detected hand only (single-hand focus)
+            const lm = results.multiHandLandmarks[0];
+
+            // Optionally, you could use results.multiHandedness[0].label to know left/right.
+
+            drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
+            drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
+
+            const signObj = recognizeSignFromLandmarks(lm);
+            if (signObj) {
+              speakDetectedSign(signObj);
+            } else {
+              signResult.textContent =
+                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two, three, five, pinky up, call-me.";
+            }
+          } else {
+            signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
+          }
+
+          context.restore();
+        });
+
+        handCamera = new Camera(video, {
+          onFrame: async () => { await hands.send({ image: video }); },
+          width: 1280,
+          height: 720
+        });
+
+        handCamera.start();
+        signResult.textContent = "Camera started. Show a hand sign.";
+      } catch (err) {
+        console.error(err);
+        signResult.textContent =
+          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
       }
     }
+
+    function stopSignCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+        cameraStream = null;
+      }
+      if (handCamera) {
+        handCamera.stop();
+        handCamera = null;
+      }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+      const video = $("signVideo");
+      const canvas = $("signCanvas");
+      const signResult = $("signResult");
+
+      if (video) video.srcObject = null;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      if (signResult) signResult.textContent = "Camera stopped.";
+
+      lockedHandId = null;
+      lastDetectedSign = "";
+      lastSpokenAt = 0;
+    }
+
+    /* ---------- Blind: simple video only ---------- */
 
     async function startBlindVideo() {
       const video = $("blindVideo");
@@ -549,49 +680,13 @@
 
       try {
         status.textContent = "Requesting camera permission...";
-
-        // IMPORTANT: audio: false -> no mic, so no echo
         blindStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
-
         video.srcObject = blindStream;
         await video.play();
-        status.textContent = "Video is on. Tap 'What's happening?' for an audio sketch.";
-
-        // Initialize FaceMesh for basic face detection
-        const faceMeshEl = new FaceMesh({
-          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/" + file
-        });
-        faceMeshEl.setOptions({
-          maxNumFaces: 3,
-          refineLandmarks: false,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.7
-        });
-
-        faceMeshEl.onResults((results) => {
-          faceCount = results.multiFaceLandmarks ? results.multiFaceLandmarks.length : 0;
-        });
-
-        faceMesh = faceMeshEl;
-
-        faceMeshCamera = new Camera(video, {
-          onFrame: async () => {
-            if (faceMesh) {
-              await faceMesh.send({ image: video });
-            }
-          },
-          width: 640,
-          height: 480
-        });
-
-        faceMeshCamera.start();
+        status.textContent = "Video is on. This is a simple camera preview.";
       } catch (e) {
         console.error(e);
         status.textContent =
@@ -604,27 +699,17 @@
         blindStream.getTracks().forEach((t) => t.stop());
         blindStream = null;
       }
-      if (faceMeshCamera) {
-        faceMeshCamera.stop();
-        faceMeshCamera = null;
-      }
-      if (faceMesh) {
-        faceMesh.close();
-        faceMesh = null;
-      }
       const video = $("blindVideo");
       const status = $("blindStatus");
       if (video) video.srcObject = null;
       if (status) status.textContent = "Video is off.";
-      prevBlindFrameData = null;
-      faceCount = 0;
     }
 
     /* ---------- Profiles ---------- */
 
     const profiles = {
       blind: {
-        description: "Blind profile: simple video preview with audio environment sketch (no mic).",
+        description: "Blind profile: simple video preview only.",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">📹</span>
@@ -642,12 +727,10 @@
             <div class="camera-controls">
               <button id="startBlindButton" class="button primary" type="button">Start Video</button>
               <button id="stopBlindButton" class="button" type="button">Stop Video</button>
-              <button id="describeEnvButton" class="button primary" type="button">What's happening?</button>
             </div>
 
             <p class="note">
-              This camera uses no microphone (audio: false), so there is no echo.
-              Press "What's happening?" to hear a brief sketch of the surroundings.
+              This is a basic camera preview with no hand recognition.
             </p>
           </article>
         `
@@ -680,17 +763,17 @@
             </p>
 
             <div class="camera-wrap">
-              <video id="signVideoDeaf" autoplay playsinline muted></video>
-              <canvas id="signCanvasDeaf"></canvas>
+              <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
             </div>
 
-            <p id="signResultDeaf" class="sign-result" role="status" aria-live="polite">
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
               Camera is off.
             </p>
 
             <div class="camera-controls">
-              <button id="startCameraButtonDeaf" class="button primary" type="button">Start Camera</button>
-              <button id="stopCameraButtonDeaf" class="button" type="button">Stop Camera</button>
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
             </div>
 
             <p class="note">
@@ -748,17 +831,17 @@
             </p>
 
             <div class="camera-wrap">
-              <video id="signVideoMute" autoplay playsinline muted></video>
-              <canvas id="signCanvasMute"></canvas>
+              <video id="signVideo" autoplay playsinline muted></video>
+              <canvas id="signCanvas"></canvas>
             </div>
 
-            <p id="signResultMute" class="sign-result" role="status" aria-live="polite">
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">
               Camera is off.
             </p>
 
             <div class="camera-controls">
-              <button id="startCameraButtonMute" class="button primary" type="button">Start Camera</button>
-              <button id="stopCameraButtonMute" class="button" type="button">Stop Camera</button>
+              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
             </div>
 
             <p class="note">
@@ -768,234 +851,6 @@
         `
       }
     };
-
-    /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
-
-    let hands = null;
-    let handCamera = null;
-    let cameraStreamSign = null;
-
-    let lockedHandId = null;
-    let lastDetectedSign = "";
-    let lastSpokenAt = 0;
-    let signStreak = 0;
-    const SIGN_STREAK_THRESHOLD = 3;
-
-    function isFingerUp(landmarks, tipIndex, pipIndex) {
-      return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
-    }
-
-    function thumbDirection(landmarks) {
-      const tip = landmarks[4];
-      const ip = landmarks[3];
-      const cmc = landmarks[2];
-
-      if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
-      if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
-      return "mid";
-    }
-
-    function recognizeSignFromLandmarks(landmarks) {
-      const indexUp = isFingerUp(landmarks, 8, 6);
-      const middleUp = isFingerUp(landmarks, 12, 10);
-      const ringUp = isFingerUp(landmarks, 16, 14);
-      const pinkyUp = isFingerUp(landmarks, 20, 18);
-
-      const tips = [indexUp, middleUp, ringUp, pinkyUp];
-      const raisedCount = tips.filter(Boolean).length;
-      const thumbDir = thumbDirection(landmarks);
-
-      if (raisedCount === 4 && thumbDir !== "down") {
-        return { label: "Hello", emoji: "👋" };
-      }
-      if (raisedCount === 0 && thumbDir === "mid") {
-        return { label: "Help me", emoji: "🆘" };
-      }
-      if (raisedCount === 0 && thumbDir === "up") {
-        return { label: "Yes", emoji: "👍" };
-      }
-      if (raisedCount === 0 && thumbDir === "down") {
-        return { label: "No", emoji: "👎" };
-      }
-      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
-        return { label: "Me", emoji: "☝️" };
-      }
-      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
-        return { label: "Two", emoji: "✌️" };
-      }
-      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
-        return { label: "Three", emoji: "🤟" };
-      }
-      if (raisedCount === 4 && thumbDir === "up") {
-        return { label: "Five", emoji: "🖐️" };
-      }
-      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
-        return { label: "Small", emoji: "🤏" };
-      }
-      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
-        return { label: "Call me", emoji: "🤙" };
-      }
-
-      return null;
-    }
-
-    function speakDetectedSign(signObj, resultElId) {
-      const now = Date.now();
-      if (!signObj) {
-        signStreak = 0;
-        return;
-      }
-
-      if (signObj.label === lastDetectedSign) {
-        signStreak++;
-      } else {
-        signStreak = 1;
-        lastDetectedSign = signObj.label;
-      }
-
-      if (signStreak < SIGN_STREAK_THRESHOLD) return;
-      if (now - lastSpokenAt < 2500) return;
-
-      lastSpokenAt = now;
-
-      const signResult = $(resultElId);
-      if (signResult) {
-        signResult.innerHTML =
-          '<span class="sign-emoji" aria-hidden="true">' +
-          signObj.emoji +
-          '</span>Detected sign: ' +
-          signObj.label +
-          " (" + signObj.emoji + ")";
-      }
-
-      speak(signObj.label);
-    }
-
-    async function startSignCamera(profileName) {
-      const videoId = profileName === "deaf" ? "signVideoDeaf" : "signVideoMute";
-      const canvasId = profileName === "deaf" ? "signCanvasDeaf" : "signCanvasMute";
-      const resultId = profileName === "deaf" ? "signResultDeaf" : "signResultMute";
-
-      const video = $(videoId);
-      const canvas = $(canvasId);
-      const signResult = $(resultId);
-
-      if (!video || !canvas) return;
-
-      lockedHandId = null;
-      lastDetectedSign = "";
-      lastSpokenAt = 0;
-      signStreak = 0;
-
-      try {
-        signResult.textContent = "Requesting camera permission...";
-
-        cameraStreamSign = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        });
-
-        video.srcObject = cameraStreamSign;
-        await video.play();
-
-        const context = canvas.getContext("2d");
-
-        hands = new Hands({
-          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
-        });
-
-        hands.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.8,
-          minTrackingConfidence: 0.8
-        });
-
-        hands.onResults((results) => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-
-          context.save();
-          context.clearRect(0, 0, canvas.width, canvas.height);
-
-          if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const lm = results.multiHandLandmarks[0];
-
-            drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
-            drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
-
-            const signObj = recognizeSignFromLandmarks(lm);
-            if (signObj) {
-              speakDetectedSign(signObj, resultId);
-            } else {
-              signResult.textContent =
-                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two, three, five, pinky up, call-me.";
-            }
-          } else {
-            signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
-          }
-
-          context.restore();
-        });
-
-        handCamera = new Camera(video, {
-          onFrame: async () => { await hands.send({ image: video }); },
-          width: 1280,
-          height: 720
-        });
-
-        handCamera.start();
-        signResult.textContent = "Camera started. Show a hand sign.";
-      } catch (err) {
-        console.error(err);
-        signResult.textContent =
-          "Camera could not start. Allow camera permission and use HTTPS or localhost.";
-      }
-    }
-
-    function stopSignCamera() {
-      if (handCamera) {
-        handCamera.stop();
-        handCamera = null;
-      }
-      if (cameraStreamSign) {
-        cameraStreamSign.getTracks().forEach((t) => t.stop());
-        cameraStreamSign = null;
-      }
-      if (hands) {
-        hands.close();
-        hands = null;
-      }
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-
-      // Clear both possible canvases/videos
-      ["signVideoDeaf", "signVideoMute"].forEach((vidId) => {
-        const v = $(vidId);
-        if (v) v.srcObject = null;
-      });
-      ["signCanvasDeaf", "signCanvasMute"].forEach((cid) => {
-        const c = $(cid);
-        if (c) {
-          const ctx = c.getContext("2d");
-          ctx.clearRect(0, 0, c.width, c.height);
-        }
-      });
-      ["signResultDeaf", "signResultMute"].forEach((rid) => {
-        const r = $(rid);
-        if (r) r.textContent = "Camera stopped.";
-      });
-
-      lockedHandId = null;
-      lastDetectedSign = "";
-      lastSpokenAt = 0;
-      signStreak = 0;
-    }
-
-    /* ---------- Profile rendering ---------- */
 
     function renderProfile(profileName) {
       stopSignCamera();
@@ -1027,28 +882,17 @@
         btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
 
-      // Blind video + describe
+      // Blind video
       const startBlindButton = $("startBlindButton");
       const stopBlindButton = $("stopBlindButton");
-      const describeEnvButton = $("describeEnvButton");
-
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
-      if (describeEnvButton) describeEnvButton.addEventListener("click", describeEnvironment);
 
-      // Sign camera for Deaf
-      const startCameraButtonDeaf = $("startCameraButtonDeaf");
-      const stopCameraButtonDeaf = $("stopCameraButtonDeaf");
-      if (startCameraButtonDeaf)
-        startCameraButtonDeaf.addEventListener("click", () => startSignCamera("deaf"));
-      if (stopCameraButtonDeaf) stopCameraButtonDeaf.addEventListener("click", stopSignCamera);
-
-      // Sign camera for Mute
-      const startCameraButtonMute = $("startCameraButtonMute");
-      const stopCameraButtonMute = $("stopCameraButtonMute");
-      if (startCameraButtonMute)
-        startCameraButtonMute.addEventListener("click", () => startSignCamera("mute"));
-      if (stopCameraButtonMute) stopCameraButtonMute.addEventListener("click", stopSignCamera);
+      // Sign camera
+      const startCameraButton = $("startCameraButton");
+      const stopCameraButton = $("stopCameraButton");
+      if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
+      if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
     }
 
     document.querySelectorAll("[data-profile]").forEach((btn) => {
