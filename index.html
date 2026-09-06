@@ -215,6 +215,7 @@
       font-weight: bold;
       text-align: center;
       font-size: 1.1rem;
+      white-space: pre-line;
     }
 
     .sign-emoji {
@@ -317,6 +318,8 @@
     let lastSpokenAt = 0;
 
     let blindStream = null;
+    let recognition = null;
+    let isListening = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -652,274 +655,13 @@
       lastSpokenAt = 0;
     }
 
-    /* ---------- Blind: Camera + Mic AUTO-START ---------- */
+    /* ---------- Blind: Camera + Mic + Surrounding Description (NO ECHO) ---------- */
 
-    async function startBlindVideo() {
-      const video = $("blindVideo");
-      const status = $("blindStatus");
-      if (!video) return;
-
-      try {
-        status.textContent = "📹🎤 Requesting camera and microphone permissions...";
-        setDashboardStatus("Requesting camera and microphone access...");
-        
-        blindStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: { echoCancellation: true, noiseSuppression: true }
-        });
-        
-        video.srcObject = blindStream;
-        await video.play();
-        
-        status.textContent = "✓ Camera and microphone are ON. Live video with audio enabled.";
-        setDashboardStatus("Camera and microphone started automatically for Blind profile.");
-        
-        // Optional: Announce to user via TTS
-        speak("Camera and microphone are now on. You can see and be heard.");
-        
-      } catch (e) {
-        console.error(e);
-        let errorMsg = "⚠️ ";
-        
-        if (e.name === "NotAllowedError") {
-          errorMsg += "Permission denied. Please allow camera and microphone in browser settings.";
-        } else if (e.name === "NotFoundError") {
-          errorMsg += "No camera or microphone found on this device.";
-        } else {
-          errorMsg += "Could not start. Allow permissions and use HTTPS or localhost.";
-        }
-        
-        status.textContent = errorMsg;
-        setDashboardStatus("Camera/microphone permission denied or unavailable.");
-      }
-    }
-
-    function stopBlindVideo() {
-      if (blindStream) {
-        blindStream.getTracks().forEach((t) => t.stop());
-        blindStream = null;
-      }
-      const video = $("blindVideo");
-      const status = $("blindStatus");
-      if (video) video.srcObject = null;
-      if (status) status.textContent = "Camera and microphone are OFF.";
-      setDashboardStatus("Camera and microphone stopped.");
-    }
-
-    /* ---------- Profiles ---------- */
-
-    const profiles = {
-      blind: {
-        description: "Blind profile: Camera and microphone start automatically for full sensory support.",
-        tools: `
-          <article class="tool-card full-width">
-            <span class="icon">📹🎤</span>
-            <h3>Live Camera + Mic (Auto-Start)</h3>
-            <p>Camera and microphone turn on automatically when you select Blind profile.</p>
-
-            <div class="camera-wrap">
-              <video id="blindVideo" autoplay playsinline></video>
-            </div>
-
-            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
-              Starting camera and microphone...
-            </p>
-
-            <div class="camera-controls">
-              <button id="stopBlindButton" class="button" type="button">Stop Camera & Mic</button>
-              <button id="restartBlindButton" class="button primary" type="button">Restart Camera & Mic</button>
-            </div>
-
-            <p class="note">
-              Camera and microphone start automatically for immediate use. You can stop or restart them anytime.
-            </p>
-          </article>
-        `
-      },
-
-      deaf: {
-        description:
-          "Deaf profile: visual alerts, live location, and hand‑sign to voice with emoji (prototype).",
-        tools: `
-          <article class="tool-card">
-            <span class="icon">💡</span>
-            <h3>Visual Alert</h3>
-            <p>Show a large help message to nearby people.</p>
-            <button class="button primary" data-large-message="I NEED HELP">Show Help Message</button>
-          </article>
-
-          <article class="tool-card">
-            <span class="icon">📍</span>
-            <h3>Live Location</h3>
-            <p>Send your Google Maps location by SMS.</p>
-            <button class="button primary" data-location>Share Live Location</button>
-          </article>
-
-          <article class="tool-card full-width">
-            <span class="icon">📷</span>
-            <h3>Hand Sign to Voice (Emoji)</h3>
-            <p>
-              Camera-based gesture recognizer (single hand).
-              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
-            </p>
-
-            <div class="camera-wrap">
-              <video id="signVideo" autoplay playsinline muted></video>
-              <canvas id="signCanvas"></canvas>
-            </div>
-
-            <p id="signResult" class="sign-result" role="status" aria-live="polite">
-              Camera is off.
-            </p>
-
-            <div class="camera-controls">
-              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
-              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
-            </div>
-
-            <p class="note">
-              This is an extended gesture prototype, not a full sign-language translator.
-            </p>
-          </article>
-        `
-      },
-
-      mute: {
-        description:
-          "Mute / Nonverbal profile: phrase board, live location, visual help, and hand‑sign to voice with emoji.",
-        tools: `
-          <article class="tool-card full-width">
-            <span class="icon">💬</span>
-            <h3>Communication Board</h3>
-            <p>Tap a phrase and the device will speak it aloud.</p>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;">
-              <button class="button" data-phrase="I need help">I need help</button>
-              <button class="button" data-phrase="I need water">I need water</button>
-              <button class="button" data-phrase="I am in pain">I am in pain</button>
-              <button class="button" data-phrase="Please call my family">Please call my family</button>
-              <button class="button" data-phrase="Thank you">Thank you</button>
-              <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">എനിക്ക് സഹായം വേണം</button>
-            </div>
-
-            <p class="note" style="margin-top:10px;">
-              Tap any button above to speak that phrase.
-            </p>
-          </article>
-
-          <article class="tool-card">
-            <span class="icon">📍</span>
-            <h3>Live Location</h3>
-            <p>Send your Google Maps location by SMS.</p>
-            <button class="button primary" data-location>Share Live Location</button>
-          </article>
-
-          <article class="tool-card">
-            <span class="icon">🪧</span>
-            <h3>Help Card</h3>
-            <p>Show a large message for people nearby.</p>
-            <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">
-              Show Help Card
-            </button>
-          </article>
-
-          <article class="tool-card full-width">
-            <span class="icon">📷</span>
-            <h3>Hand Sign to Voice (Emoji)</h3>
-            <p>
-              Camera-based gesture recognizer (single hand).
-              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
-            </p>
-
-            <div class="camera-wrap">
-              <video id="signVideo" autoplay playsinline muted></video>
-              <canvas id="signCanvas"></canvas>
-            </div>
-
-            <p id="signResult" class="sign-result" role="status" aria-live="polite">
-              Camera is off.
-            </p>
-
-            <div class="camera-controls">
-              <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
-              <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
-            </div>
-
-            <p class="note">
-              This is an extended gesture prototype, not a full sign-language translator.
-            </p>
-          </article>
-        `
-      }
-    };
-
-    function renderProfile(profileName) {
-      stopSignCamera();
-      stopBlindVideo();
-
-      const profile = profiles[profileName];
-      localStorage.setItem("accessAbleProfile", profileName);
-
-      $("selectionSection").hidden = true;
-      $("dashboard").hidden = false;
-
-      $("profileDescription").textContent = profile.description;
-      $("toolsGrid").innerHTML = profile.tools;
-
-      $("dashboard").scrollIntoView({ behavior: "smooth" });
-
-      // Speak buttons
-      document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
-        btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
-      });
-
-      // Location buttons
-      document.querySelectorAll("[data-location]").forEach((btn) => {
-        btn.addEventListener("click", shareLocationBySms);
-      });
-
-      // Large message buttons
-      document.querySelectorAll("[data-large-message]").forEach((btn) => {
-        btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
-      });
-
-      // Blind video controls
-      const stopBlindButton = $("stopBlindButton");
-      const restartBlindButton = $("restartBlindButton");
-      if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
-      if (restartBlindButton) restartBlindButton.addEventListener("click", startBlindVideo);
-
-      // Sign camera
-      const startCameraButton = $("startCameraButton");
-      const stopCameraButton = $("stopCameraButton");
-      if (startCameraButton) startCameraButton.addEventListener("click", startSignCamera);
-      if (stopCameraButton) stopCameraButton.addEventListener("click", stopSignCamera);
-
-      // AUTO-START camera and mic for Blind profile
-      if (profileName === "blind") {
-        setTimeout(() => {
-          startBlindVideo();
-        }, 500);
-      }
-    }
-
-    document.querySelectorAll("[data-profile]").forEach((btn) => {
-      btn.addEventListener("click", () => renderProfile(btn.dataset.profile));
-    });
-
-    $("changeProfileButton").addEventListener("click", () => {
-      stopSignCamera();
-      stopBlindVideo();
-      $("dashboard").hidden = true;
-      $("selectionSection").hidden = false;
-      $("selectionSection").scrollIntoView({ behavior: "smooth" });
-    });
-
-    window.addEventListener("beforeunload", () => {
-      stopAlarm();
-      stopSignCamera();
-      stopBlindVideo();
-    });
-  </script>
-</body>
-</html>
+    function generateSurroundingDescription(userInput) {
+      const input = userInput.toLowerCase();
+      
+      // Keyword detection with scoring
+      const scenarios = {
+        busyStreet: {
+          keywords: ["street", "road", "traffic", "car", "bus", "bike", "vehicle", "horn", "busy"],
+          description: "You are on a busy street with active traffic. Vehicles are moving around you, possibly with honking sounds. There may be pedestrians nearby. Stay alert while crossing and listen for approaching vehic
