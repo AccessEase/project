@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#075bc8" />
-  <title>AccessAble | Hand Sign to Voice (Single Hand + Emoji)</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>AccessEase | Hand Sign to Voice</title>
 
   <style>
     :root {
@@ -22,17 +24,28 @@
       --shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
     }
 
-    * { box-sizing: border-box; }
+    * { 
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
+      overflow-x: hidden;
     }
-    button, input { font: inherit; }
-    button { cursor: pointer; }
+    button, input { 
+      font: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    button { 
+      cursor: pointer;
+      touch-action: manipulation;
+    }
     button:focus-visible, input:focus-visible {
       outline: 4px solid var(--focus);
       outline-offset: 3px;
@@ -40,56 +53,81 @@
     [hidden] { display: none !important; }
 
     .container {
-      width: min(1100px, 92%);
+      width: min(100%, 95%);
       margin: auto;
-      padding: 32px 0 50px;
+      padding: 20px 0 40px;
+      max-width: 600px;
     }
-    header { text-align: center; margin-bottom: 28px; }
+
+    header { 
+      text-align: center; 
+      margin-bottom: 20px;
+      padding: 0 10px;
+    }
     header h1 {
       margin: 0;
-      font-size: clamp(2rem, 5vw, 3rem);
+      font-size: clamp(1.8rem, 6vw, 2.5rem);
       color: var(--primary);
+      font-weight: 800;
     }
-    header p { margin: 8px 0 0; color: var(--muted); font-size: 1.1rem; }
+    header p { 
+      margin: 6px 0 0; 
+      color: var(--muted); 
+      font-size: 1rem;
+    }
 
     .card {
       background: var(--surface);
       border: 2px solid var(--border);
       border-radius: var(--radius);
-      padding: 24px;
+      padding: 18px;
       box-shadow: var(--shadow);
+      margin: 0 10px;
     }
 
     .emergency-box {
-      margin-bottom: 28px;
+      margin: 10px;
       text-align: center;
       color: #fff;
-      background: var(--danger);
+      background: linear-gradient(135deg, var(--danger), var(--danger-dark));
       border: 3px solid var(--danger-dark);
       border-radius: var(--radius);
-      padding: 24px;
+      padding: 20px 15px;
     }
-    .emergency-box h2 { margin: 0 0 8px; font-size: 1.8rem; }
-    .emergency-box p { margin: 0 0 18px; }
-
-    .emergency-button {
-      width: min(100%, 520px);
-      min-height: 70px;
-      border: none;
-      border-radius: 12px;
-      padding: 15px 22px;
-      color: var(--danger-dark);
-      background: #fff;
-      font-size: 1.25rem;
+    .emergency-box h2 { 
+      margin: 0 0 8px; 
+      font-size: 1.5rem;
       font-weight: 900;
     }
-    .emergency-button:hover { transform: translateY(-2px); }
+    .emergency-box p { 
+      margin: 0 0 15px;
+      font-size: 0.95rem;
+    }
+
+    .emergency-button {
+      width: 100%;
+      max-width: 100%;
+      min-height: 65px;
+      border: none;
+      border-radius: 12px;
+      padding: 15px 20px;
+      color: var(--danger-dark);
+      background: #fff;
+      font-size: 1.1rem;
+      font-weight: 900;
+      box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+      transition: transform 0.2s;
+    }
+    .emergency-button:active {
+      transform: scale(0.98);
+    }
 
     .status-message {
-      margin: 16px 0 0;
-      padding: 12px;
-      border-radius: 10px;
+      margin: 12px 0 0;
+      padding: 10px;
+      border-radius: 8px;
       font-weight: bold;
+      font-size: 0.9rem;
     }
     .status-message.info {
       color: #1e40af;
@@ -109,54 +147,67 @@
 
     .options-grid, .tools-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
+      grid-template-columns: 1fr;
+      gap: 14px;
     }
     .option-card, .tool-card {
-      min-height: 220px;
-      padding: 22px;
+      min-height: 180px;
+      padding: 18px;
       border: 3px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       background: var(--surface);
       text-align: center;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .option-card:active, .tool-card:active {
+      transform: scale(0.98);
     }
     .option-card:hover {
       border-color: var(--primary);
       background: #eaf3ff;
-      transform: translateY(-3px);
     }
     .icon {
       display: block;
-      margin-bottom: 12px;
-      font-size: 3.8rem;
+      margin-bottom: 10px;
+      font-size: 3rem;
     }
     .option-card h3, .tool-card h3 {
-      margin: 0 0 8px;
-      font-size: 1.35rem;
+      margin: 0 0 6px;
+      font-size: 1.2rem;
+      font-weight: 700;
     }
     .option-card p, .tool-card p {
       color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0;
     }
 
     .button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 48px;
-      padding: 11px 16px;
+      min-height: 50px;
+      padding: 12px 18px;
       border: 2px solid var(--border);
       border-radius: 10px;
       color: var(--text);
       background: var(--surface);
       font-weight: bold;
       text-decoration: none;
+      width: 100%;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .button:active {
+      transform: scale(0.97);
     }
     .button.primary {
       color: #fff;
       background: var(--primary);
       border-color: var(--primary);
+      box-shadow: 0 3px 10px rgba(7, 91, 200, 0.3);
     }
-    .button.primary:hover {
+    .button.primary:active {
       background: var(--primary-dark);
       border-color: var(--primary-dark);
     }
@@ -165,29 +216,36 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
-    .dashboard-header h2 { margin: 0; }
-    .dashboard-header p { margin: 6px 0 0; color: var(--muted); }
+    .dashboard-header h2 { 
+      margin: 0; 
+      font-size: 1.3rem;
+    }
+    .dashboard-header p { 
+      margin: 4px 0 0; 
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
 
     .full-width { grid-column: 1 / -1; }
 
     .camera-wrap {
       position: relative;
       width: 100%;
-      max-width: 700px;
-      margin: 16px auto 0;
+      margin: 12px auto 0;
       overflow: hidden;
       background: #111;
       border: 3px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
+      aspect-ratio: 4/3;
     }
     #signVideo, #blindVideo {
       display: block;
       width: 100%;
-      max-height: 460px;
+      height: 100%;
       object-fit: cover;
     }
     #signCanvas {
@@ -201,45 +259,91 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
-      margin-top: 16px;
+      margin-top: 12px;
+    }
+    .camera-controls .button {
+      flex: 1;
+      min-width: 140px;
     }
 
     .sign-result {
-      max-width: 700px;
-      margin: 16px auto 0;
-      padding: 14px;
+      width: 100%;
+      margin: 12px auto 0;
+      padding: 12px;
       color: #0b315d;
       background: #edf6ff;
       border: 2px solid var(--primary);
       border-radius: 10px;
       font-weight: bold;
       text-align: center;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
 
     .sign-emoji {
-      font-size: 3rem;
+      font-size: 2.5rem;
       display: block;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .note {
-      max-width: 700px;
-      margin: 16px auto 0;
+      width: 100%;
+      margin: 12px auto 0;
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       text-align: center;
+      padding: 0 10px;
     }
 
-    @media (max-width: 600px) {
-      .options-grid, .tools-grid { grid-template-columns: 1fr; }
-      .emergency-button { font-size: 1rem; }
-      .camera-controls { flex-direction: column; }
-      .button { width: 100%; }
+    .phrase-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .phrase-grid .button {
+      min-height: 55px;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        width: 100%;
+        padding: 15px 0 30px;
+      }
+      .card {
+        padding: 15px;
+        margin: 0 8px;
+        border-radius: 12px;
+      }
+      .emergency-box {
+        margin: 8px;
+        padding: 18px 12px;
+      }
+      .emergency-box h2 {
+        font-size: 1.3rem;
+      }
+      .option-card, .tool-card {
+        min-height: 160px;
+        padding: 15px;
+      }
+      .icon {
+        font-size: 2.5rem;
+      }
+      .phrase-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    button, .button {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
   </style>
 
-  <!-- MediaPipe for hand tracking -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
@@ -247,12 +351,11 @@
 <body>
   <div class="container">
     <header>
-      <h1>♿ AccessAble</h1>
+      <h1>♿ AccessEase</h1>
       <p>Communication, accessibility, and emergency support</p>
     </header>
 
     <main>
-      <!-- Emergency -->
       <section class="emergency-box">
         <h2>🚨 EMERGENCY HELP</h2>
         <p>Alarm, live location, and call support</p>
@@ -262,7 +365,6 @@
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
-      <!-- Selection -->
       <section id="selectionSection" class="card">
         <h2>Select Your Primary Need</h2>
         <p>Choose one option. The matching tools open immediately.</p>
@@ -288,15 +390,14 @@
         </div>
       </section>
 
-      <!-- Dashboard -->
       <section id="dashboard" class="card" hidden>
         <div class="dashboard-header">
           <div>
             <h2>Your Support Tools</h2>
             <p id="profileDescription"></p>
           </div>
-          <button id="changeProfileButton" class="button" type="button">
-            Change Selection
+          <button id="changeProfileButton" class="button" type="button" style="min-width:120px;flex:0 0 auto;">
+            Change
           </button>
         </div>
         <div id="toolsGrid" class="tools-grid"></div>
@@ -310,12 +411,8 @@
 
     let audioContext = null, oscillator = null, alarmInterval = null;
     let cameraStream = null, handCamera = null;
-
-    // For single-hand locking
-    let lockedHandId = null;
     let lastDetectedSign = "";
     let lastSpokenAt = 0;
-
     let blindStream = null;
 
     const $ = (id) => document.getElementById(id);
@@ -323,8 +420,6 @@
     function setDashboardStatus(msg) {
       $("dashboardStatus").textContent = msg;
     }
-
-    /* ---------- Emergency ---------- */
 
     function startAlarm() {
       try {
@@ -388,9 +483,7 @@
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
       getLiveLocation((locationUrl) => {
-        const msg =
-          "EMERGENCY: I need immediate help." +
-          (locationUrl ? " My location: " + locationUrl : "");
+        const msg = "EMERGENCY: I need immediate help." + (locationUrl ? " My location: " + locationUrl : "");
         console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
         setTimeout(() => {
           stopAlarm();
@@ -399,11 +492,9 @@
       });
     });
 
-    /* ---------- TTS ---------- */
-
     function speak(text) {
       if (!("speechSynthesis" in window)) {
-        setDashboardStatus("Text-to-speech is not supported in this browser.");
+        setDashboardStatus("Text-to-speech not supported.");
         return;
       }
       window.speechSynthesis.cancel();
@@ -415,12 +506,10 @@
       setDashboardStatus("Speaking: " + text);
     }
 
-    /* ---------- Location by SMS ---------- */
-
     function shareLocationBySms() {
-      setDashboardStatus("Requesting live location...");
+      setDashboardStatus("Requesting location...");
       if (!navigator.geolocation) {
-        setDashboardStatus("Location is not supported by this browser.");
+        setDashboardStatus("Location not supported.");
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -431,25 +520,21 @@
           const text = "My live location: " + url;
           window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(text);
         },
-        () => setDashboardStatus("Could not get location. Please allow location permission."),
+        () => setDashboardStatus("Could not get location. Allow permission."),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
-    /* ---------- Large message overlay ---------- */
-
     function showLargeMessage(message) {
       const overlay = document.createElement("div");
       overlay.style.cssText =
-        "position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:30px;color:#fff;background:#111;font-size:clamp(2.5rem,11vw,8rem);font-weight:900;text-align:center;cursor:pointer;";
-      overlay.textContent = message + " — Tap anywhere to close";
+        "position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;color:#fff;background:#111;font-size:clamp(2rem,10vw,5rem);font-weight:900;text-align:center;cursor:pointer;";
+      overlay.textContent = message + " — Tap to close";
       overlay.setAttribute("role", "dialog");
       overlay.setAttribute("aria-label", message);
       overlay.addEventListener("click", () => overlay.remove());
       document.body.appendChild(overlay);
     }
-
-    /* ---------- Hand / Sign recognition (single hand, emoji output) ---------- */
 
     function isFingerUp(landmarks, tipIndex, pipIndex) {
       return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
@@ -459,7 +544,6 @@
       const tip = landmarks[4];
       const ip = landmarks[3];
       const cmc = landmarks[2];
-
       if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
       if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
       return "mid";
@@ -470,429 +554,250 @@
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
       const pinkyUp = isFingerUp(landmarks, 20, 18);
-
       const tips = [indexUp, middleUp, ringUp, pinkyUp];
       const raisedCount = tips.filter(Boolean).length;
       const thumbDir = thumbDirection(landmarks);
 
-      // Open palm: all 4 fingers up, thumb not down
-      if (raisedCount === 4 && thumbDir !== "down") {
-        return { label: "Hello", emoji: "👋" };
-      }
-
-      // Fist: all fingers down, thumb mid
-      if (raisedCount === 0 && thumbDir === "mid") {
-        return { label: "Help me", emoji: "🆘" };
-      }
-
-      // Thumbs up
-      if (raisedCount === 0 && thumbDir === "up") {
-        return { label: "Yes", emoji: "👍" };
-      }
-
-      // Thumbs down
-      if (raisedCount === 0 && thumbDir === "down") {
-        return { label: "No", emoji: "👎" };
-      }
-
-      // Index up only -> "Me"
-      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
-        return { label: "Me", emoji: "☝️" };
-      }
-
-      // Index + Middle up -> "Two"
-      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
-        return { label: "Two", emoji: "✌️" };
-      }
-
-      // Index + Middle + Ring up -> "Three"
-      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
-        return { label: "Three", emoji: "🤟" };
-      }
-
-      // All four fingers up + thumb up -> "Five"
-      if (raisedCount === 4 && thumbDir === "up") {
-        return { label: "Five", emoji: "🖐️" };
-      }
-
-      // Pinky up only -> "Small"
-      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
-        return { label: "Small", emoji: "🤏" };
-      }
-
-      // Thumb + Pinky up (others down) -> "Call me"
-      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
-        return { label: "Call me", emoji: "🤙" };
-      }
-
-      // No clear sign
+      if (raisedCount === 4 && thumbDir !== "down") return { label: "Hello", emoji: "👋" };
+      if (raisedCount === 0 && thumbDir === "mid") return { label: "Help me", emoji: "🆘" };
+      if (raisedCount === 0 && thumbDir === "up") return { label: "Yes", emoji: "👍" };
+      if (raisedCount === 0 && thumbDir === "down") return { label: "No", emoji: "👎" };
+      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) return { label: "Me", emoji: "☝️" };
+      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) return { label: "Two", emoji: "✌️" };
+      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) return { label: "Three", emoji: "🤟" };
+      if (raisedCount === 4 && thumbDir === "up") return { label: "Five", emoji: "🖐️" };
+      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) return { label: "Small", emoji: "🤏" };
+      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") return { label: "Call me", emoji: "🤙" };
       return null;
     }
 
     function speakDetectedSign(signObj) {
       const now = Date.now();
-      if (
-        signObj &&
-        signObj.label === lastDetectedSign &&
-        now - lastSpokenAt < 2500
-      ) {
-        return;
-      }
-
+      if (signObj && signObj.label === lastDetectedSign && now - lastSpokenAt < 2500) return;
       if (!signObj) return;
-
       lastDetectedSign = signObj.label;
       lastSpokenAt = now;
-
       const signResult = $("signResult");
       if (signResult) {
-        signResult.innerHTML =
-          '<span class="sign-emoji" aria-hidden="true">' +
-          signObj.emoji +
-          '</span>Detected sign: ' +
-          signObj.label +
-          " (" + signObj.emoji + ")";
+        signResult.innerHTML = '<span class="sign-emoji">' + signObj.emoji + '</span>Detected: ' + signObj.label + " " + signObj.emoji;
       }
-
       speak(signObj.label);
     }
-
-    /* ---------- Camera for sign/gesture recognition (Deaf & Mute) ---------- */
 
     async function startSignCamera() {
       const video = $("signVideo");
       const canvas = $("signCanvas");
       const signResult = $("signResult");
+      if (!video || !canvas) { console.error("Video or canvas not found"); return; }
 
-      if (!video || !canvas) {
-        console.error("Video or canvas element not found");
-        return;
-      }
-
-      // Reset state
-      lockedHandId = null;
       lastDetectedSign = "";
       lastSpokenAt = 0;
 
       try {
-        signResult.textContent = "Requesting camera permission...";
-
+        signResult.textContent = "Requesting camera...";
         cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
-
         video.srcObject = cameraStream;
         await video.play();
-
         const context = canvas.getContext("2d");
 
-        const hands = new Hands({
-          locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
-        });
-
-        hands.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.8,
-          minTrackingConfidence: 0.8
-        });
+        const hands = new Hands({ locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
 
         hands.onResults((results) => {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
-
           context.save();
           context.clearRect(0, 0, canvas.width, canvas.height);
 
           if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
             const lm = results.multiHandLandmarks[0];
-
-            drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 4 });
-            drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 4 });
-
+            drawConnectors(context, lm, HAND_CONNECTIONS, { color: "#00ff88", lineWidth: 3 });
+            drawLandmarks(context, lm, { color: "#ff3344", lineWidth: 2, radius: 3 });
             const signObj = recognizeSignFromLandmarks(lm);
-            if (signObj) {
-              speakDetectedSign(signObj);
-            } else {
-              signResult.textContent =
-                "Hand detected. Try: open palm, fist, thumbs up/down, index up, two, three, five, pinky up, call-me.";
-            }
+            if (signObj) speakDetectedSign(signObj);
+            else signResult.textContent = "Show: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️";
           } else {
-            signResult.textContent = "No hand detected. Keep one hand visible to the camera.";
+            signResult.textContent = "Show your hand to camera";
           }
-
           context.restore();
         });
 
-        handCamera = new Camera(video, {
-          onFrame: async () => { await hands.send({ image: video }); },
-          width: 1280,
-          height: 720
-        });
-
+        handCamera = new Camera(video, { onFrame: async () => { await hands.send({ image: video }); }, width: 640, height: 480 });
         handCamera.start();
-        signResult.textContent = "Camera started. Show a hand sign.";
+        signResult.textContent = "Camera ready. Show a sign.";
       } catch (err) {
         console.error("Camera error:", err);
-        signResult.innerHTML =
-          '<strong style="color:#991b1b;">Camera could not start.</strong><br>' +
-          'Please allow camera permission and use HTTPS or localhost.<br>' +
-          '<button class="button primary" onclick="startSignCamera()" style="margin-top:10px;">Try Again</button>';
+        signResult.innerHTML = '<strong style="color:#991b1b;">Camera failed</strong><br>Allow permission. Use HTTPS.<br><button class="button primary" onclick="startSignCamera()" style="margin-top:10px;">Try Again</button>';
       }
     }
 
     function stopSignCamera() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((t) => t.stop());
-        cameraStream = null;
-      }
-      if (handCamera) {
-        handCamera.stop();
-        handCamera = null;
-      }
+      if (cameraStream) { cameraStream.getTracks().forEach((t) => t.stop()); cameraStream = null; }
+      if (handCamera) { handCamera.stop(); handCamera = null; }
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-
       const video = $("signVideo");
       const canvas = $("signCanvas");
       const signResult = $("signResult");
-
       if (video) video.srcObject = null;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
+      if (canvas) { const ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
       if (signResult) signResult.textContent = "Camera stopped.";
-
-      lockedHandId = null;
       lastDetectedSign = "";
       lastSpokenAt = 0;
     }
 
-    /* ---------- Blind: simple video only ---------- */
-
     async function startBlindVideo() {
       const video = $("blindVideo");
       const status = $("blindStatus");
-      if (!video) {
-        console.error("Blind video element not found");
-        return;
-      }
+      if (!video) { console.error("Video not found"); return; }
 
       try {
-        status.textContent = "Requesting camera permission...";
+        status.textContent = "Requesting camera...";
         blindStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
         video.srcObject = blindStream;
         await video.play();
-        status.textContent = "Video is on. This is a simple camera preview.";
+        status.textContent = "✓ Video is on";
       } catch (e) {
-        console.error("Blind video error:", e);
-        status.innerHTML =
-          '<strong style="color:#991b1b;">Camera could not start.</strong><br>' +
-          'Allow camera permission and use HTTPS or localhost.<br>' +
-          '<button class="button primary" onclick="startBlindVideo()" style="margin-top:10px;">Try Again</button>';
+        console.error("Video error:", e);
+        status.innerHTML = '<strong style="color:#991b1b;">Camera failed</strong><br>Allow permission.<br><button class="button primary" onclick="startBlindVideo()" style="margin-top:10px;">Try Again</button>';
       }
     }
 
     function stopBlindVideo() {
-      if (blindStream) {
-        blindStream.getTracks().forEach((t) => t.stop());
-        blindStream = null;
-      }
+      if (blindStream) { blindStream.getTracks().forEach((t) => t.stop()); blindStream = null; }
       const video = $("blindVideo");
       const status = $("blindStatus");
       if (video) video.srcObject = null;
       if (status) status.textContent = "Video is off.";
     }
 
-    /* ---------- Profiles ---------- */
-
     const profiles = {
       blind: {
-        description: "Blind profile: simple video preview only.",
+        description: "Simple video preview",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">📹</span>
-            <h3>Enable Video</h3>
-            <p>Turn on the camera for a simple video preview.</p>
-
+            <h3>Camera Preview</h3>
+            <p>Turn on camera for video preview.</p>
             <div class="camera-wrap">
               <video id="blindVideo" autoplay playsinline muted></video>
             </div>
-
-            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
-              Video is off.
-            </p>
-
+            <p id="blindStatus" class="sign-result" role="status" aria-live="polite">Video is off.</p>
             <div class="camera-controls">
-              <button id="startBlindButton" class="button primary" type="button">Start Video</button>
-              <button id="stopBlindButton" class="button" type="button">Stop Video</button>
+              <button id="startBlindButton" class="button primary" type="button">Start Camera</button>
+              <button id="stopBlindButton" class="button" type="button">Stop Camera</button>
             </div>
-
-            <p class="note">
-              This is a basic camera preview with no hand recognition.
-            </p>
           </article>
         `
       },
-
       deaf: {
-        description:
-          "Deaf profile: visual alerts, live location, and hand‑sign to voice with emoji (prototype).",
+        description: "Visual alerts, location, hand signs",
         tools: `
           <article class="tool-card">
             <span class="icon">💡</span>
             <h3>Visual Alert</h3>
-            <p>Show a large help message to nearby people.</p>
-            <button class="button primary" data-large-message="I NEED HELP">Show Help Message</button>
+            <p>Show large help message.</p>
+            <button class="button primary" data-large-message="I NEED HELP">Show Help</button>
           </article>
-
           <article class="tool-card">
             <span class="icon">📍</span>
-            <h3>Live Location</h3>
-            <p>Send your Google Maps location by SMS.</p>
-            <button class="button primary" data-location>Share Live Location</button>
+            <h3>Location</h3>
+            <p>Send location by SMS.</p>
+            <button class="button primary" data-location>Share Location</button>
           </article>
-
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Hand Sign to Voice (Emoji)</h3>
-            <p>
-              Camera-based gesture recognizer (single hand).
-              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
-            </p>
-
+            <h3>Hand Sign to Voice</h3>
+            <p>Show: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call 🤙</p>
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
               <canvas id="signCanvas"></canvas>
             </div>
-
-            <p id="signResult" class="sign-result" role="status" aria-live="polite">
-              Camera is off.
-            </p>
-
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">Camera is off.</p>
             <div class="camera-controls">
               <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
               <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
             </div>
-
-            <p class="note">
-              This is an extended gesture prototype, not a full sign-language translator.
-            </p>
           </article>
         `
       },
-
       mute: {
-        description:
-          "Mute / Nonverbal profile: phrase board, live location, visual help, and hand‑sign to voice with emoji.",
+        description: "Phrase board, location, hand signs",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">💬</span>
-            <h3>Communication Board</h3>
-            <p>Tap a phrase and the device will speak it aloud.</p>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;">
+            <h3>Phrase Board</h3>
+            <p>Tap to speak phrases aloud.</p>
+            <div class="phrase-grid">
               <button class="button" data-phrase="I need help">I need help</button>
               <button class="button" data-phrase="I need water">I need water</button>
               <button class="button" data-phrase="I am in pain">I am in pain</button>
-              <button class="button" data-phrase="Please call my family">Please call my family</button>
+              <button class="button" data-phrase="Call my family">Call my family</button>
               <button class="button" data-phrase="Thank you">Thank you</button>
-              <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">എനിക്ക് സഹായം വേണം</button>
+              <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">സഹായം വേണം</button>
             </div>
-
-            <p class="note" style="margin-top:10px;">
-              Tap any button above to speak that phrase.
-            </p>
           </article>
-
           <article class="tool-card">
             <span class="icon">📍</span>
-            <h3>Live Location</h3>
-            <p>Send your Google Maps location by SMS.</p>
-            <button class="button primary" data-location>Share Live Location</button>
+            <h3>Location</h3>
+            <p>Send location by SMS.</p>
+            <button class="button primary" data-location>Share Location</button>
           </article>
-
           <article class="tool-card">
             <span class="icon">🪧</span>
             <h3>Help Card</h3>
-            <p>Show a large message for people nearby.</p>
-            <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">
-              Show Help Card
-            </button>
+            <p>Show large message.</p>
+            <button class="button primary" data-large-message="I CANNOT SPEAK. PLEASE HELP ME.">Show Card</button>
           </article>
-
           <article class="tool-card full-width">
             <span class="icon">📷</span>
-            <h3>Hand Sign to Voice (Emoji)</h3>
-            <p>
-              Camera-based gesture recognizer (single hand).
-              Supported signs: Hello 👋, Help me 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call me 🤙.
-            </p>
-
+            <h3>Hand Sign to Voice</h3>
+            <p>Show: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️</p>
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
               <canvas id="signCanvas"></canvas>
             </div>
-
-            <p id="signResult" class="sign-result" role="status" aria-live="polite">
-              Camera is off.
-            </p>
-
+            <p id="signResult" class="sign-result" role="status" aria-live="polite">Camera is off.</p>
             <div class="camera-controls">
               <button id="startCameraButton" class="button primary" type="button">Start Camera</button>
               <button id="stopCameraButton" class="button" type="button">Stop Camera</button>
             </div>
-
-            <p class="note">
-              This is an extended gesture prototype, not a full sign-language translator.
-            </p>
           </article>
         `
       }
     };
 
     function renderProfile(profileName) {
-      // Stop any running cameras first
       stopSignCamera();
       stopBlindVideo();
-
       const profile = profiles[profileName];
-      localStorage.setItem("accessAbleProfile", profileName);
-
+      localStorage.setItem("accessEaseProfile", profileName);
       $("selectionSection").hidden = true;
       $("dashboard").hidden = false;
-
       $("profileDescription").textContent = profile.description;
       $("toolsGrid").innerHTML = profile.tools;
-
       $("dashboard").scrollIntoView({ behavior: "smooth" });
 
-      // Speak buttons
       document.querySelectorAll("[data-speak], [data-phrase]").forEach((btn) => {
         btn.addEventListener("click", () => speak(btn.dataset.speak || btn.dataset.phrase));
       });
-
-      // Location buttons
       document.querySelectorAll("[data-location]").forEach((btn) => {
         btn.addEventListener("click", shareLocationBySms);
       });
-
-      // Large message buttons
       document.querySelectorAll("[data-large-message]").forEach((btn) => {
         btn.addEventListener("click", () => showLargeMessage(btn.dataset.largeMessage));
       });
 
-      // Blind video
       const startBlindButton = $("startBlindButton");
       const stopBlindButton = $("stopBlindButton");
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
 
-      // Sign camera - use setTimeout to ensure DOM is ready
       setTimeout(() => {
         const startCameraButton = $("startCameraButton");
         const stopCameraButton = $("stopCameraButton");
@@ -913,12 +818,9 @@
       $("selectionSection").scrollIntoView({ behavior: "smooth" });
     });
 
-    // Load saved profile on page load
     window.addEventListener("DOMContentLoaded", () => {
-      const savedProfile = localStorage.getItem("accessAbleProfile");
-      if (savedProfile && profiles[savedProfile]) {
-        renderProfile(savedProfile);
-      }
+      const savedProfile = localStorage.getItem("accessEaseProfile");
+      if (savedProfile && profiles[savedProfile]) renderProfile(savedProfile);
     });
 
     window.addEventListener("beforeunload", () => {
