@@ -401,7 +401,7 @@
 
     <main>
       <!-- Emergency -->
-      <section class="emergency-box">
+      <section class="emergency-box" id="emergencyBox">
         <h2>🚨 EMERGENCY HELP</h2>
         <p>Alarm, live location, and call support</p>
         <button id="emergencyButton" class="emergency-button" type="button">
@@ -466,6 +466,7 @@
     let lastDetectedSign = "";
     let lastSpokenAt = 0;
 
+    let currentProfile = null;
     let blindStream = null;
     let blindRecognition = null;
     let blindListening = false;
@@ -643,7 +644,8 @@
     let shakeEnabled = false;
     let lastAcceleration = null;
     const SHAKE_JERK_THRESHOLD = 35;   // m/s^2 change between readings — a hard, violent shake
-    const SHAKE_REQUIRED_MS = 3000;    // must keep shaking this long, continuously
+    const SHAKE_REQUIRED_MS = 3000;    // must keep shaking this long, continuously (non-blind profiles)
+    const BLIND_SHAKE_REQUIRED_MS = 2000; // shorter streak while the blind profile is active
     const SHAKE_MAX_GAP_MS = 700;      // a pause longer than this resets the streak
     const SHAKE_COOLDOWN_MS = 8000;
     let shakeStreakStartedAt = null;
@@ -656,6 +658,9 @@
 
       const current = { x: acc.x || 0, y: acc.y || 0, z: acc.z || 0 };
       const now = Date.now();
+      const isBlind = currentProfile === "blind";
+      const requiredMs = isBlind ? BLIND_SHAKE_REQUIRED_MS : SHAKE_REQUIRED_MS;
+      const requiredLabel = isBlind ? "2s" : "3s";
 
       if (now - lastShakeTriggerAt <= SHAKE_COOLDOWN_MS) {
         lastAcceleration = current;
@@ -675,28 +680,32 @@
 
       if (isSpike) {
         // A gap longer than SHAKE_MAX_GAP_MS since the last spike means the
-        // person stopped shaking, so a fresh 3-second streak has to start over.
+        // person stopped shaking, so a fresh streak has to start over.
         if (!lastSpikeAt || now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
           shakeStreakStartedAt = now;
         }
         lastSpikeAt = now;
 
-        const status = $("emergencyStatus");
+        const status = isBlind ? $("blindStatus") : $("emergencyStatus");
         const elapsedMs = now - shakeStreakStartedAt;
-        if (status && elapsedMs < SHAKE_REQUIRED_MS) {
-          status.hidden = false;
-          status.className = "status-message info";
-          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / 3s";
+        if (status && elapsedMs < requiredMs) {
+          if (!isBlind) status.hidden = false;
+          status.className = isBlind ? "sign-result" : "status-message info";
+          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / " + requiredLabel;
         }
 
-        if (elapsedMs >= SHAKE_REQUIRED_MS) {
+        if (elapsedMs >= requiredMs) {
           lastShakeTriggerAt = now;
           shakeStreakStartedAt = null;
           lastSpikeAt = null;
-          $("emergencyButton").click();
+          if (isBlind) {
+            blindSendHelpAndVideoCall();
+          } else {
+            $("emergencyButton").click();
+          }
         }
       } else if (lastSpikeAt && now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
-        // Shaking stopped before reaching 3 seconds — reset the streak.
+        // Shaking stopped before reaching the required streak — reset it.
         shakeStreakStartedAt = null;
         lastSpikeAt = null;
       }
@@ -1093,6 +1102,11 @@
       "surroundings", "describe the scene", "look around"
     ];
 
+    // Phrases that trigger sending live location + starting a video call
+    const BLIND_HELP_TRIGGERS = [
+      "help", "help me", "i need help", "emergency", "call for help"
+    ];
+
     function captureBlindFrame() {
       const video = $("blindVideo");
       if (!video || !video.videoWidth) return null;
@@ -1195,6 +1209,68 @@
       }
     }
 
+    /* ---------- Blind: voice/shake "help" — live location + video call ---------- */
+
+    let blindCallRoomUrl = null;
+
+    function getBlindCallRoomUrl() {
+      // A fresh room per session, reused across repeated triggers so a
+      // second "help" doesn't start a second, different call.
+      if (!blindCallRoomUrl) {
+        const roomId = "AccessEase-" + Math.random().toString(36).slice(2, 10);
+        blindCallRoomUrl = "https://meet.jit.si/" + roomId;
+      }
+      return blindCallRoomUrl;
+    }
+
+    let sendingBlindHelp = false;
+
+    function blindSendHelpAndVideoCall() {
+      if (sendingBlindHelp) return;
+      sendingBlindHelp = true;
+
+      const status = $("blindStatus");
+      speak("Sending your location and starting a video call for help.");
+      if (status) {
+        status.className = "sign-result";
+        status.textContent = "🆘 Sending your location and starting a video call...";
+      }
+
+      const videoUrl = getBlindCallRoomUrl();
+
+      // Opening a new tab needs a direct tap in most browsers — a voice
+      // command or a shake doesn't count as that tap, so this may be
+      // blocked by the browser's popup blocker. It's attempted anyway;
+      // the video link is also included in the text below either way, so
+      // it can still be opened from there.
+      try {
+        window.open(videoUrl, "_blank");
+      } catch (e) {}
+
+      const sendSms = (mapsUrl) => {
+        const msg =
+          "I need help." +
+          (mapsUrl ? " My location: " + mapsUrl : "") +
+          " Video call: " + videoUrl;
+        window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
+        sendingBlindHelp = false;
+      };
+
+      if (!navigator.geolocation) {
+        sendSms(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const mapsUrl = "https://maps.google.com/?q=" + pos.coords.latitude + "," + pos.coords.longitude;
+          sendSms(mapsUrl);
+        },
+        () => sendSms(null),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
     function setupBlindRecognition() {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognitionAPI) return null;
@@ -1210,6 +1286,13 @@
           const transcript = event.results[i][0].transcript.trim().toLowerCase();
           const micButton = $("blindMicButton");
           if (micButton) micButton.title = "Heard: " + transcript;
+
+          // "Help" takes priority over a surroundings request.
+          const heardHelp = BLIND_HELP_TRIGGERS.some((phrase) => transcript.includes(phrase));
+          if (heardHelp) {
+            blindSendHelpAndVideoCall();
+            continue;
+          }
 
           const matched = SURROUNDINGS_TRIGGERS.some((phrase) => transcript.includes(phrase));
           if (matched) {
@@ -1332,6 +1415,10 @@
               or tap "Describe Now" any time — you'll hear a quick, plain call-out of what's ahead
               (e.g. "it's a laptop on a table", "you're in a crowded area", "there's a box in front of you").
             </p>
+            <p class="note">
+              For emergencies: say "help" while listening is on, or shake the phone hard for 2 seconds —
+              this sends your live location by text and starts a video call, no screen tap needed.
+            </p>
           </article>
         `
       },
@@ -1441,7 +1528,16 @@
       stopBlindVideo();
 
       const profile = profiles[profileName];
+      currentProfile = profileName;
       localStorage.setItem("accessEaseProfile", profileName);
+
+      // The blind profile has no visible emergency button to tap — instead,
+      // saying "help" or shaking for 2 seconds sends live location and
+      // starts a video call (see blindSendHelpAndVideoCall). The main
+      // emergency section is hidden here so it's not shown for a profile
+      // that can't see or reliably tap it.
+      const emergencyBox = $("emergencyBox");
+      if (emergencyBox) emergencyBox.hidden = (profileName === "blind");
 
       $("selectionSection").hidden = true;
       $("dashboard").hidden = false;
@@ -1532,6 +1628,9 @@
     $("changeProfileButton").addEventListener("click", () => {
       stopSignCamera();
       stopBlindVideo();
+      currentProfile = null;
+      const emergencyBox = $("emergencyBox");
+      if (emergencyBox) emergencyBox.hidden = false;
       $("dashboard").hidden = true;
       $("selectionSection").hidden = false;
       $("selectionSection").scrollIntoView({ behavior: "smooth" });
