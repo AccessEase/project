@@ -410,13 +410,6 @@
         <button id="sendLocationButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
           📍 SEND LIVE LOCATION
         </button>
-        <button id="shakeToggleButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
-          📳 ENABLE SHAKE TO ALERT
-        </button>
-        <p class="note" style="color:#fff;opacity:0.9;">
-          A phone's volume buttons can't be read by a webpage (browsers block that for privacy).
-          Turn this on instead — shake the phone hard and continuously for 3 seconds and it triggers the emergency alarm and call automatically. A brief pause resets the count, so it won't go off from a bump or a jolt.
-        </p>
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
@@ -749,10 +742,17 @@
       speak("Shake to alert is off.");
     }
 
-    $("shakeToggleButton").addEventListener("click", () => {
-      if (shakeEnabled) disableShakeToAlert();
-      else enableShakeToAlert();
-    });
+    // Shake-to-alert UI entry point is currently hidden — the button was
+    // removed from the emergency section — but the underlying
+    // enableShakeToAlert/disableShakeToAlert/handleDeviceMotion logic above
+    // is untouched, so it can be wired back up to a control later.
+    const shakeToggleButtonEl = $("shakeToggleButton");
+    if (shakeToggleButtonEl) {
+      shakeToggleButtonEl.addEventListener("click", () => {
+        if (shakeEnabled) disableShakeToAlert();
+        else enableShakeToAlert();
+      });
+    }
 
     /* ---------- TTS ---------- */
 
