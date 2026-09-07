@@ -816,7 +816,7 @@
         status.textContent = "Requesting camera...";
         blindStream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            facingMode: "user", 
+            facingMode: { ideal: "environment" }, 
             width: { ideal: 640 }, 
             height: { ideal: 480 } 
           },
@@ -824,7 +824,7 @@
         });
         video.srcObject = blindStream;
         await video.play();
-        status.textContent = "✓ Video is on. Tap the mic or say \"what's happening\" to hear about your surroundings.";
+        status.textContent = "✓ Camera is on. Say \"what's happening\" to hear about your surroundings.";
       } catch (e) {
         console.error("Blind video error:", e);
         status.innerHTML =
@@ -903,9 +903,12 @@
                   {
                     type: "text",
                     text:
-                      "You are describing a live camera view to a blind person so they understand what is around them. " +
-                      "In 2-3 short spoken sentences: say what kind of space it looks like, note any people, and call out anything they might bump into or should be careful of (steps, furniture, doors, obstacles). " +
-                      "Be calm, plain, and concrete. Do not mention that this is an image or a photo — describe it as their surroundings. No preamble."
+                      "You are describing a live rear-camera view to a blind person so they instantly know what is in front of them. " +
+                      "Start with the single clearest label for what's directly ahead, in plain everyday words, like a person would blurt it out: " +
+                      "\"It's a laptop on a table\", \"You're in a crowded street\", \"There's a cardboard box in front of you\", \"Empty hallway, nothing in the way\", \"A person is walking toward you\". " +
+                      "Then, only if useful, add one short follow-up sentence with distance or direction (left/right/ahead) or a hazard to watch for (steps, furniture, doors, traffic). " +
+                      "Keep it to 1-2 short sentences total, said plainly and confidently — no hedging like 'it appears to be' or 'I can see'. " +
+                      "Do not mention that this is an image, photo, or camera feed — describe it as their surroundings right now. No preamble."
                   }
                 ]
               }
@@ -1048,18 +1051,18 @@
           <article class="tool-card full-width">
             <span class="icon">📹</span>
             <h3>Camera Preview</h3>
-            <p>Turn on camera for video preview.</p>
+            <p>Back camera and mic start automatically.</p>
 
             <div class="camera-wrap">
               <video id="blindVideo" autoplay playsinline muted></video>
             </div>
 
             <p id="blindStatus" class="sign-result" role="status" aria-live="polite">
-              Video is off.
+              Starting camera and mic…
             </p>
 
             <div class="camera-controls">
-              <button id="startBlindButton" class="button primary" type="button">Start Camera</button>
+              <button id="startBlindButton" class="button" type="button">Restart Camera</button>
               <button id="stopBlindButton" class="button" type="button">Stop Camera</button>
             </div>
 
@@ -1069,8 +1072,9 @@
             </div>
 
             <p class="note">
-              Say "what's happening", "what's around me", or "describe surroundings" while listening is on,
-              or tap "Describe Now" any time — you'll hear a brief spoken description of what the camera sees.
+              Uses the back camera. Say "what's happening", "what's around me", or "describe surroundings" while listening is on,
+              or tap "Describe Now" any time — you'll hear a quick, plain call-out of what's ahead
+              (e.g. "it's a laptop on a table", "you're in a crowded area", "there's a box in front of you").
             </p>
           </article>
         `
@@ -1212,6 +1216,14 @@
       const describeNowButton = $("describeNowButton");
       if (blindMicButton) blindMicButton.addEventListener("click", toggleBlindMic);
       if (describeNowButton) describeNowButton.addEventListener("click", describeSurroundings);
+
+      // Blind profile: turn the camera and mic on right away, no extra tap needed.
+      // The browser will still show its own one-time permission prompt the first
+      // time — that native prompt can't be skipped, but nothing on our end asks first.
+      if (profileName === "blind") {
+        startBlindVideo();
+        startBlindMic();
+      }
 
       const customPhraseInput = $("customPhraseInput");
       const customPhraseSpeak = $("customPhraseSpeak");
