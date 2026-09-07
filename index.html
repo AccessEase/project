@@ -916,6 +916,17 @@
           })
         });
 
+        if (!response.ok) {
+          let apiMessage = response.status + " " + response.statusText;
+          try {
+            const errBody = await response.json();
+            if (errBody && errBody.error && errBody.error.message) {
+              apiMessage = errBody.error.message;
+            }
+          } catch (e) {}
+          throw new Error(apiMessage);
+        }
+
         const data = await response.json();
         const description = (data.content || [])
           .map((block) => (block.type === "text" ? block.text : ""))
@@ -932,8 +943,15 @@
         }
       } catch (err) {
         console.error("Describe surroundings error:", err);
-        if (status) status.textContent = "Something went wrong while describing surroundings.";
-        speak("Something went wrong. Please try again.");
+        const detail = (err && err.message) ? err.message : "Unknown error";
+        if (status) {
+          status.textContent =
+            "⚠️ Could not reach the description service (" + detail + "). " +
+            "This feature needs this app to be running as a live Claude artifact " +
+            "(open it inside the Claude chat) — it won't work as a downloaded or " +
+            "separately-hosted file, since it can't authenticate to the API on its own.";
+        }
+        speak("I could not reach the description service. Please try again.");
       } finally {
         describingScene = false;
       }
