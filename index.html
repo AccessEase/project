@@ -407,6 +407,9 @@
         <button id="emergencyButton" class="emergency-button" type="button">
           🆘 EMERGENCY — CALL FOR HELP
         </button>
+        <button id="sendLocationButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
+          📍 SEND LIVE LOCATION
+        </button>
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
@@ -558,6 +561,25 @@
           stopAlarm();
           window.location.href = "tel:" + EMERGENCY_NUMBER;
         }, 3000);
+      });
+    });
+
+    $("sendLocationButton").addEventListener("click", () => {
+      getLiveLocation((locationUrl) => {
+        const box = $("emergencyStatus");
+        if (!locationUrl) {
+          if (box) {
+            box.className = "status-message error";
+            box.textContent = "Could not get your location. Please allow location permission and try again.";
+          }
+          return;
+        }
+        const msg = "My live location: " + locationUrl;
+        if (box) {
+          box.className = "status-message info";
+          box.textContent = "✓ Location found. Opening a text with your location — tap Send there.";
+        }
+        window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
       });
     });
 
