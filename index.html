@@ -541,11 +541,23 @@
         const msg =
           "EMERGENCY: I need immediate help." +
           (locationUrl ? " My location: " + locationUrl : "");
-        console.log("SMS backup:", "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg));
+        const box = $("emergencyStatus");
+
+        // Open the messaging app with the emergency contact and message
+        // (including the live location link) already filled in. Browsers
+        // can't send an SMS silently with no user action at all — this is
+        // a platform security restriction, not something this app can skip —
+        // so one tap of "Send" in the messaging app is still needed.
+        if (box) {
+          box.className = "status-message info";
+          box.textContent = "✓ Location found. Opening a text with your location — tap Send there, then we'll call.";
+        }
+        window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
+
         setTimeout(() => {
           stopAlarm();
           window.location.href = "tel:" + EMERGENCY_NUMBER;
-        }, 1800);
+        }, 3000);
       });
     });
 
@@ -1105,7 +1117,7 @@
             <span class="icon">💡</span>
             <h3>Visual Alert</h3>
             <p>Show large help message.</p>
-            <button class="button primary" data-large-message="I NEED HELP">Show Help</button>
+            <button class="button primary" data-large-message="I AM DEAF. CAN YOU HELP ME?">Show Help</button>
           </article>
 
           <article class="tool-card">
