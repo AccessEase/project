@@ -212,6 +212,17 @@
       border-color: var(--primary-dark);
     }
 
+    .button.listening {
+      color: #fff;
+      background: var(--danger);
+      border-color: var(--danger-dark);
+      animation: pulseGlow 1.2s infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.55); }
+      50% { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
+    }
+
     .dashboard-header {
       display: flex;
       align-items: center;
@@ -305,6 +316,29 @@
       font-size: 0.95rem;
     }
 
+    .custom-phrase-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .custom-phrase-row input[type="text"] {
+      flex: 1 1 180px;
+      min-height: 50px;
+      padding: 10px 14px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .custom-phrase-row .button {
+      flex: 0 0 auto;
+      width: auto;
+      min-width: 90px;
+      padding: 12px 16px;
+    }
+
     /* Mobile-specific optimizations */
     @media (max-width: 480px) {
       .container {
@@ -332,6 +366,12 @@
       }
       .phrase-grid {
         grid-template-columns: 1fr;
+      }
+      .custom-phrase-row {
+        flex-direction: column;
+      }
+      .custom-phrase-row .button {
+        width: 100%;
       }
     }
 
@@ -424,6 +464,9 @@
     let lastSpokenAt = 0;
 
     let blindStream = null;
+    let blindRecognition = null;
+    let blindListening = false;
+    let describingScene = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -759,7 +802,7 @@
       lastSpokenAt = 0;
     }
 
-    /* ---------- Blind: simple video ---------- */
+    /* ---------- Blind: video + voice-activated surroundings description ---------- */
 
     async function startBlindVideo() {
       const video = $("blindVideo");
@@ -781,7 +824,7 @@
         });
         video.srcObject = blindStream;
         await video.play();
-        status.textContent = "✓ Video is on";
+        status.textContent = "✓ Video is on. Tap the mic or say \"what's happening\" to hear about your surroundings.";
       } catch (e) {
         console.error("Blind video error:", e);
         status.innerHTML =
@@ -800,13 +843,207 @@
       const status = $("blindStatus");
       if (video) video.srcObject = null;
       if (status) status.textContent = "Video is off.";
+      stopBlindMic();
+    }
+
+    // Phrases that trigger a surroundings description
+    const SURROUNDINGS_TRIGGERS = [
+      "what's happening", "whats happening", "what is happening",
+      "what's around me", "whats around me", "what is around me",
+      "describe my surroundings", "describe surroundings",
+      "what do you see", "what can you see", "where am i",
+      "surroundings", "describe the scene", "look around"
+    ];
+
+    function captureBlindFrame() {
+      const video = $("blindVideo");
+      if (!video || !video.videoWidth) return null;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      // JPEG at moderate quality keeps the payload small
+      return canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+    }
+
+    async function describeSurroundings() {
+      const status = $("blindStatus");
+      if (describingScene) return;
+
+      if (!blindStream) {
+        speak("Please start the camera first.");
+        return;
+      }
+
+      const base64Image = captureBlindFrame();
+      if (!base64Image) {
+        speak("I could not capture the camera image. Please try again.");
+        return;
+      }
+
+      describingScene = true;
+      if (status) status.textContent = "🔎 Looking around, please wait...";
+      speak("Let me look.");
+
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1000,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image",
+                    source: { type: "base64", media_type: "image/jpeg", data: base64Image }
+                  },
+                  {
+                    type: "text",
+                    text:
+                      "You are describing a live camera view to a blind person so they understand what is around them. " +
+                      "In 2-3 short spoken sentences: say what kind of space it looks like, note any people, and call out anything they might bump into or should be careful of (steps, furniture, doors, obstacles). " +
+                      "Be calm, plain, and concrete. Do not mention that this is an image or a photo — describe it as their surroundings. No preamble."
+                  }
+                ]
+              }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        const description = (data.content || [])
+          .map((block) => (block.type === "text" ? block.text : ""))
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+        if (description) {
+          if (status) status.textContent = "🗣️ " + description;
+          speak(description);
+        } else {
+          if (status) status.textContent = "Could not describe the surroundings right now.";
+          speak("I could not describe the surroundings right now.");
+        }
+      } catch (err) {
+        console.error("Describe surroundings error:", err);
+        if (status) status.textContent = "Something went wrong while describing surroundings.";
+        speak("Something went wrong. Please try again.");
+      } finally {
+        describingScene = false;
+      }
+    }
+
+    function setupBlindRecognition() {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognitionAPI) return null;
+
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = "en-IN";
+
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (!event.results[i].isFinal) continue;
+          const transcript = event.results[i][0].transcript.trim().toLowerCase();
+          const micButton = $("blindMicButton");
+          if (micButton) micButton.title = "Heard: " + transcript;
+
+          const matched = SURROUNDINGS_TRIGGERS.some((phrase) => transcript.includes(phrase));
+          if (matched) {
+            describeSurroundings();
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.log("Speech recognition error:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setDashboardStatus("Microphone permission was denied.");
+          stopBlindMic();
+        }
+      };
+
+      recognition.onend = () => {
+        // Auto-restart while listening is toggled on, so it keeps hearing commands
+        if (blindListening) {
+          try { recognition.start(); } catch (e) {}
+        }
+      };
+
+      return recognition;
+    }
+
+    function startBlindMic() {
+      const micButton = $("blindMicButton");
+      const status = $("blindStatus");
+
+      if (!blindRecognition) blindRecognition = setupBlindRecognition();
+
+      if (!blindRecognition) {
+        speak("Voice commands are not supported in this browser.");
+        if (status) status.textContent = "Voice commands are not supported in this browser.";
+        return;
+      }
+
+      try {
+        blindListening = true;
+        blindRecognition.start();
+        if (micButton) {
+          micButton.classList.add("listening");
+          micButton.textContent = "🎤 Listening… (tap to stop)";
+        }
+        if (status) status.textContent = "🎤 Listening. Say \"what's happening\" to hear your surroundings.";
+      } catch (e) {
+        console.log("Mic start error:", e);
+      }
+    }
+
+    function stopBlindMic() {
+      blindListening = false;
+      if (blindRecognition) {
+        try { blindRecognition.stop(); } catch (e) {}
+      }
+      const micButton = $("blindMicButton");
+      if (micButton) {
+        micButton.classList.remove("listening");
+        micButton.textContent = "🎤 Start Listening";
+      }
+    }
+
+    function toggleBlindMic() {
+      if (blindListening) stopBlindMic();
+      else startBlindMic();
+    }
+
+    /* ---------- Mute: custom phrase board ---------- */
+
+    function addCustomPhrase(text) {
+      const cleaned = text.trim();
+      if (!cleaned) return;
+
+      speak(cleaned);
+
+      const grid = document.querySelector("#toolsGrid .phrase-grid");
+      if (grid) {
+        const btn = document.createElement("button");
+        btn.className = "button";
+        btn.type = "button";
+        btn.textContent = cleaned;
+        btn.dataset.phrase = cleaned;
+        btn.addEventListener("click", () => speak(btn.dataset.phrase));
+        grid.appendChild(btn);
+      }
     }
 
     /* ---------- Profiles ---------- */
 
     const profiles = {
       blind: {
-        description: "Simple video preview",
+        description: "Camera preview with voice-activated surroundings description",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">📹</span>
@@ -825,6 +1062,16 @@
               <button id="startBlindButton" class="button primary" type="button">Start Camera</button>
               <button id="stopBlindButton" class="button" type="button">Stop Camera</button>
             </div>
+
+            <div class="camera-controls">
+              <button id="blindMicButton" class="button primary" type="button">🎤 Start Listening</button>
+              <button id="describeNowButton" class="button" type="button">🔎 Describe Now</button>
+            </div>
+
+            <p class="note">
+              Say "what's happening", "what's around me", or "describe surroundings" while listening is on,
+              or tap "Describe Now" any time — you'll hear a brief spoken description of what the camera sees.
+            </p>
           </article>
         `
       },
@@ -869,7 +1116,7 @@
       },
 
       mute: {
-        description: "Phrase board, location, hand signs",
+        description: "Phrase board, custom words, location, hand signs",
         tools: `
           <article class="tool-card full-width">
             <span class="icon">💬</span>
@@ -883,6 +1130,12 @@
               <button class="button" data-phrase="Call my family">Call my family</button>
               <button class="button" data-phrase="Thank you">Thank you</button>
               <button class="button" data-phrase="എനിക്ക് സഹായം വേണം">സഹായം വേണം</button>
+            </div>
+
+            <div class="custom-phrase-row">
+              <input id="customPhraseInput" type="text" placeholder="Type your own words..." aria-label="Custom phrase" />
+              <button id="customPhraseSpeak" class="button primary" type="button">Speak</button>
+              <button id="customPhraseAdd" class="button" type="button">+ Add to board</button>
             </div>
           </article>
 
@@ -954,6 +1207,36 @@
       const stopBlindButton = $("stopBlindButton");
       if (startBlindButton) startBlindButton.addEventListener("click", startBlindVideo);
       if (stopBlindButton) stopBlindButton.addEventListener("click", stopBlindVideo);
+
+      const blindMicButton = $("blindMicButton");
+      const describeNowButton = $("describeNowButton");
+      if (blindMicButton) blindMicButton.addEventListener("click", toggleBlindMic);
+      if (describeNowButton) describeNowButton.addEventListener("click", describeSurroundings);
+
+      const customPhraseInput = $("customPhraseInput");
+      const customPhraseSpeak = $("customPhraseSpeak");
+      const customPhraseAdd = $("customPhraseAdd");
+      if (customPhraseSpeak) {
+        customPhraseSpeak.addEventListener("click", () => {
+          if (customPhraseInput) speak(customPhraseInput.value.trim());
+        });
+      }
+      if (customPhraseAdd) {
+        customPhraseAdd.addEventListener("click", () => {
+          if (customPhraseInput) {
+            addCustomPhrase(customPhraseInput.value);
+            customPhraseInput.value = "";
+          }
+        });
+      }
+      if (customPhraseInput) {
+        customPhraseInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            speak(customPhraseInput.value.trim());
+          }
+        });
+      }
 
       setTimeout(() => {
         const startCameraButton = $("startCameraButton");
