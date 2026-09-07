@@ -634,63 +634,96 @@
     }
 
     /* ---------- Hand / Sign recognition ---------- */
+    /*
+      Classifier is based on which of the 5 fingers are extended
+      (thumb, index, middle, ring, pinky), plus thumb direction and a
+      thumb-index "pinch" check for the OK sign. Each gesture below maps
+      to one distinct combination so lookalikes (Hello vs Five, SOS vs
+      Small vs Call me) can no longer be confused with each other.
+    */
 
     function isFingerUp(landmarks, tipIndex, pipIndex) {
       return landmarks[tipIndex].y < landmarks[pipIndex].y - 0.02;
     }
 
-    function thumbDirection(landmarks) {
-      const tip = landmarks[4];
-      const ip = landmarks[3];
-      const cmc = landmarks[2];
-
-      if (tip.y < ip.y - 0.02 && tip.y < cmc.y - 0.02) return "up";
-      if (tip.y > ip.y + 0.02 && tip.y > cmc.y + 0.02) return "down";
-      return "mid";
+    function palmCenter(landmarks) {
+      const idxs = [0, 5, 9, 13, 17];
+      let x = 0, y = 0;
+      idxs.forEach((i) => { x += landmarks[i].x; y += landmarks[i].y; });
+      return { x: x / idxs.length, y: y / idxs.length };
     }
+
+    function handScale(landmarks) {
+      const wrist = landmarks[0], midMcp = landmarks[9];
+      return Math.hypot(midMcp.x - wrist.x, midMcp.y - wrist.y) || 0.001;
+    }
+
+    function isThumbExtended(landmarks) {
+      const scale = handScale(landmarks);
+      const tip = landmarks[4], mcp = landmarks[2];
+      const dist = Math.hypot(tip.x - mcp.x, tip.y - mcp.y);
+      return dist > scale * 0.6;
+    }
+
+    // "tucked" (curled into the fist), "up", "down", or "side"
+    function thumbDirection(landmarks) {
+      if (!isThumbExtended(landmarks)) return "tucked";
+      const tip = landmarks[4];
+      const palm = palmCenter(landmarks);
+      const dx = tip.x - palm.x;
+      const dy = tip.y - palm.y;
+      if (Math.abs(dy) > Math.abs(dx) * 1.2) return dy < 0 ? "up" : "down";
+      return "side";
+    }
+
+    function isPinch(landmarks) {
+      const scale = handScale(landmarks);
+      const dist = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+      return dist < scale * 0.35;
+    }
+
+    // key = thumbExtended,index,middle,ring,pinky (each 0/1)
+    const SIGN_LOOKUP = {
+      "0,1,0,0,0": { label: "Me / I", emoji: "☝️" },
+      "0,0,0,0,1": { label: "A little bit", emoji: "🤏" },
+      "1,0,0,0,1": { label: "Call me", emoji: "🤙" },
+      "1,1,0,0,0": { label: "Wait a moment", emoji: "🤚" },
+      "0,1,1,0,0": { label: "Two", emoji: "✌️" },
+      "0,1,0,0,1": { label: "Rock on / Cool", emoji: "🤘" },
+      "1,1,0,0,1": { label: "I love you", emoji: "🤟" },
+      "0,1,1,1,0": { label: "Three", emoji: "🖖" },
+      "0,1,1,1,1": { label: "Hello", emoji: "👋" },
+      "1,1,1,1,0": { label: "Please", emoji: "🙏" },
+      "1,1,1,1,1": { label: "Five / High five", emoji: "🖐️" },
+      "0,0,1,1,1": { label: "I'm sorry", emoji: "😔" },
+      "0,0,0,1,0": { label: "One moment", emoji: "⏳" },
+      "1,0,0,1,0": { label: "Repeat that, please", emoji: "🔁" },
+      "0,0,1,0,1": { label: "I don't understand", emoji: "🤷" }
+    };
 
     function recognizeSignFromLandmarks(landmarks) {
       const indexUp = isFingerUp(landmarks, 8, 6);
       const middleUp = isFingerUp(landmarks, 12, 10);
       const ringUp = isFingerUp(landmarks, 16, 14);
       const pinkyUp = isFingerUp(landmarks, 20, 18);
-
-      const tips = [indexUp, middleUp, ringUp, pinkyUp];
-      const raisedCount = tips.filter(Boolean).length;
+      const thumbExt = isThumbExtended(landmarks);
       const thumbDir = thumbDirection(landmarks);
 
-      if (raisedCount === 4 && thumbDir !== "down") {
-        return { label: "Hello", emoji: "👋" };
-      }
-      if (raisedCount === 0 && thumbDir === "mid") {
-        return { label: "Help me", emoji: "🆘" };
-      }
-      if (raisedCount === 0 && thumbDir === "up") {
-        return { label: "Yes", emoji: "👍" };
-      }
-      if (raisedCount === 0 && thumbDir === "down") {
-        return { label: "No", emoji: "👎" };
-      }
-      if (raisedCount === 1 && indexUp && !middleUp && !ringUp && !pinkyUp) {
-        return { label: "Me", emoji: "☝️" };
-      }
-      if (raisedCount === 2 && indexUp && middleUp && !ringUp && !pinkyUp) {
-        return { label: "Two", emoji: "✌️" };
-      }
-      if (raisedCount === 3 && indexUp && middleUp && ringUp && !pinkyUp) {
-        return { label: "Three", emoji: "🤟" };
-      }
-      if (raisedCount === 4 && thumbDir === "up") {
-        return { label: "Five", emoji: "🖐️" };
-      }
-      if (raisedCount === 1 && pinkyUp && !indexUp && !middleUp && !ringUp) {
-        return { label: "Small", emoji: "🤏" };
-      }
-      if (raisedCount === 1 && pinkyUp && thumbDir !== "mid") {
-        return { label: "Call me", emoji: "🤙" };
+      // OK sign: thumb and index pinched together, other three fingers extended.
+      if (isPinch(landmarks) && middleUp && ringUp && pinkyUp) {
+        return { label: "OK / Good", emoji: "👌" };
       }
 
-      return null;
+      // Closed fist: meaning comes entirely from what the thumb is doing.
+      if (!indexUp && !middleUp && !ringUp && !pinkyUp) {
+        if (thumbDir === "tucked") return { label: "Help me — SOS", emoji: "🆘" };
+        if (thumbDir === "up") return { label: "Yes", emoji: "👍" };
+        if (thumbDir === "down") return { label: "No", emoji: "👎" };
+        if (thumbDir === "side") return { label: "Stop, please", emoji: "✋" };
+      }
+
+      const key = [thumbExt ? 1 : 0, indexUp ? 1 : 0, middleUp ? 1 : 0, ringUp ? 1 : 0, pinkyUp ? 1 : 0].join(",");
+      return SIGN_LOOKUP[key] || null;
     }
 
     function speakDetectedSign(signObj) {
@@ -1152,7 +1185,7 @@
           <article class="tool-card full-width">
             <span class="icon">📷</span>
             <h3>Hand Sign to Voice</h3>
-            <p>Show hand signs: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️, Small 🤏, Call 🤙</p>
+            <p style="text-align:left;">20 signs supported — hold steady for a second:</p><p class="note" style="margin-top:0;text-align:left;"><strong>Closed fist:</strong> SOS 🆘 (thumb tucked in) · Yes 👍 (thumb up) · No 👎 (thumb down) · Stop, please ✋ (thumb out to the side)<br><strong>Other shapes:</strong> Me ☝️ · A little bit 🤏 · Call me 🤙 · Wait a moment 🤚 · Two ✌️ · Rock on 🤘 · I love you 🤟 · Three 🖖 · Hello 👋 · Please 🙏 · Five / high five 🖐️ · I'm sorry 😔 · One moment ⏳ · Repeat that, please 🔁 · OK / good 👌 · I don't understand 🤷</p>
 
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
@@ -1212,7 +1245,7 @@
           <article class="tool-card full-width">
             <span class="icon">📷</span>
             <h3>Hand Sign to Voice</h3>
-            <p>Show hand signs: Hello 👋, Help 🆘, Yes 👍, No 👎, Me ☝️, Two ✌️, Three 🤟, Five 🖐️</p>
+            <p style="text-align:left;">20 signs supported — hold steady for a second:</p><p class="note" style="margin-top:0;text-align:left;"><strong>Closed fist:</strong> SOS 🆘 (thumb tucked in) · Yes 👍 (thumb up) · No 👎 (thumb down) · Stop, please ✋ (thumb out to the side)<br><strong>Other shapes:</strong> Me ☝️ · A little bit 🤏 · Call me 🤙 · Wait a moment 🤚 · Two ✌️ · Rock on 🤘 · I love you 🤟 · Three 🖖 · Hello 👋 · Please 🙏 · Five / high five 🖐️ · I'm sorry 😔 · One moment ⏳ · Repeat that, please 🔁 · OK / good 👌 · I don't understand 🤷</p>
 
             <div class="camera-wrap">
               <video id="signVideo" autoplay playsinline muted></video>
