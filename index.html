@@ -1518,6 +1518,17 @@
       btn.addEventListener("click", () => renderProfile(btn.dataset.profile));
     });
 
+    // Shake-to-alert has no toggle button anymore, so it's turned on
+    // automatically instead — but only after a real tap somewhere in the
+    // app, since iOS requires an actual user gesture before it will grant
+    // motion-sensor permission. This listens for that first tap once,
+    // then removes itself.
+    document.addEventListener(
+      "click",
+      () => { enableShakeToAlert(); },
+      { once: true }
+    );
+
     $("changeProfileButton").addEventListener("click", () => {
       stopSignCamera();
       stopBlindVideo();
