@@ -410,6 +410,13 @@
         <button id="sendLocationButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
           📍 SEND LIVE LOCATION
         </button>
+        <button id="shakeToggleButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
+          📳 ENABLE SHAKE TO ALERT
+        </button>
+        <p class="note" style="color:#fff;opacity:0.9;">
+          A phone's volume buttons can't be read by a webpage (browsers block that for privacy).
+          Turn this on instead — shake the phone hard and continuously for 10 seconds and it triggers the emergency alarm and call automatically. A brief pause resets the count, so it won't go off from a bump or a jolt.
+        </p>
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
@@ -538,30 +545,21 @@
       );
     }
 
+    // EMERGENCY — CALL FOR HELP: this button now only dials the number.
+    // It no longer requests location permission or sends an SMS, so
+    // there's no repeated permission prompt in the way — one tap calls.
+    // Live location is still available separately via the
+    // "SEND LIVE LOCATION" button below.
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
-      getLiveLocation((locationUrl) => {
-        const msg =
-          "EMERGENCY: I need immediate help." +
-          (locationUrl ? " My location: " + locationUrl : "");
-        const box = $("emergencyStatus");
-
-        // Open the messaging app with the emergency contact and message
-        // (including the live location link) already filled in. Browsers
-        // can't send an SMS silently with no user action at all — this is
-        // a platform security restriction, not something this app can skip —
-        // so one tap of "Send" in the messaging app is still needed.
-        if (box) {
-          box.className = "status-message info";
-          box.textContent = "✓ Location found. Opening a text with your location — tap Send there, then we'll call.";
-        }
-        window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
-
-        setTimeout(() => {
-          stopAlarm();
-          window.location.href = "tel:" + EMERGENCY_NUMBER;
-        }, 10000);
-      });
+      const box = $("emergencyStatus");
+      if (box) {
+        box.hidden = false;
+        box.className = "status-message info";
+        box.textContent = "☎️ Calling for help now...";
+      }
+      stopAlarm();
+      window.location.href = "tel:" + EMERGENCY_NUMBER;
     });
 
     $("sendLocationButton").addEventListener("click", () => {
@@ -581,6 +579,128 @@
         }
         window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
       });
+    });
+
+    /* ---------- Shake to alert (stand-in for a hardware button) ---------- */
+    /*
+      Browsers don't expose physical volume/power button presses to web
+      pages at all — no permission unlocks that, it's an OS-level block.
+      Shaking the phone is the closest hands-free, no-menu-hunting trigger
+      that IS available to a webpage, via the device's motion sensor.
+
+      Detection uses "jerk" — the change in acceleration between readings —
+      rather than raw motion. Walking, being in a bag, or a normal bump
+      changes acceleration gradually; a violent, deliberate shake changes
+      it sharply and repeatedly. Requiring that sharp shaking continue for
+      a full 10 seconds (not just a couple of quick spikes) is what tells
+      the two apart and avoids accidental triggers.
+    */
+
+    let shakeEnabled = false;
+    let lastAcceleration = null;
+    const SHAKE_JERK_THRESHOLD = 35;   // m/s^2 change between readings — a hard, violent shake
+    const SHAKE_REQUIRED_MS = 10000;   // must keep shaking this long, continuously
+    const SHAKE_MAX_GAP_MS = 700;      // a pause longer than this resets the streak
+    const SHAKE_COOLDOWN_MS = 8000;
+    let shakeStreakStartedAt = null;
+    let lastSpikeAt = null;
+    let lastShakeTriggerAt = 0;
+
+    function handleDeviceMotion(event) {
+      const acc = event.accelerationIncludingGravity || event.acceleration;
+      if (!acc) return;
+
+      const current = { x: acc.x || 0, y: acc.y || 0, z: acc.z || 0 };
+      const now = Date.now();
+
+      if (now - lastShakeTriggerAt <= SHAKE_COOLDOWN_MS) {
+        lastAcceleration = current;
+        return;
+      }
+
+      let isSpike = false;
+      if (lastAcceleration) {
+        const jerk = Math.sqrt(
+          Math.pow(current.x - lastAcceleration.x, 2) +
+          Math.pow(current.y - lastAcceleration.y, 2) +
+          Math.pow(current.z - lastAcceleration.z, 2)
+        );
+        isSpike = jerk > SHAKE_JERK_THRESHOLD;
+      }
+      lastAcceleration = current;
+
+      if (isSpike) {
+        // A gap longer than SHAKE_MAX_GAP_MS since the last spike means the
+        // person stopped shaking, so a fresh 10-second streak has to start over.
+        if (!lastSpikeAt || now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
+          shakeStreakStartedAt = now;
+        }
+        lastSpikeAt = now;
+
+        const status = $("emergencyStatus");
+        const elapsedMs = now - shakeStreakStartedAt;
+        if (status && elapsedMs < SHAKE_REQUIRED_MS) {
+          status.hidden = false;
+          status.className = "status-message info";
+          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / 10s";
+        }
+
+        if (elapsedMs >= SHAKE_REQUIRED_MS) {
+          lastShakeTriggerAt = now;
+          shakeStreakStartedAt = null;
+          lastSpikeAt = null;
+          $("emergencyButton").click();
+        }
+      } else if (lastSpikeAt && now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
+        // Shaking stopped before reaching 10 seconds — reset the streak.
+        shakeStreakStartedAt = null;
+        lastSpikeAt = null;
+      }
+    }
+
+    function enableShakeToAlert() {
+      const btn = $("shakeToggleButton");
+
+      const finishEnable = () => {
+        window.addEventListener("devicemotion", handleDeviceMotion);
+        shakeEnabled = true;
+        if (btn) {
+          btn.textContent = "📳 SHAKE TO ALERT: ON";
+          btn.classList.add("listening");
+        }
+        speak("Shake to alert is on. Shake your phone hard and fast to call for help.");
+      };
+
+      if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+        // iOS requires an explicit user-gesture permission request.
+        DeviceMotionEvent.requestPermission()
+          .then((state) => {
+            if (state === "granted") finishEnable();
+            else speak("Motion permission was denied, so shake to alert can't turn on.");
+          })
+          .catch(() => speak("Could not enable shake to alert on this device."));
+      } else if (window.DeviceMotionEvent) {
+        finishEnable();
+      } else {
+        speak("Shake to alert is not supported on this device.");
+      }
+    }
+
+    function disableShakeToAlert() {
+      window.removeEventListener("devicemotion", handleDeviceMotion);
+      shakeEnabled = false;
+      shakeHistory = [];
+      const btn = $("shakeToggleButton");
+      if (btn) {
+        btn.textContent = "📳 ENABLE SHAKE TO ALERT";
+        btn.classList.remove("listening");
+      }
+      speak("Shake to alert is off.");
+    }
+
+    $("shakeToggleButton").addEventListener("click", () => {
+      if (shakeEnabled) disableShakeToAlert();
+      else enableShakeToAlert();
     });
 
     /* ---------- TTS ---------- */
