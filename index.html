@@ -415,7 +415,7 @@
         </button>
         <p class="note" style="color:#fff;opacity:0.9;">
           A phone's volume buttons can't be read by a webpage (browsers block that for privacy).
-          Turn this on instead — shake the phone hard and continuously for 10 seconds and it triggers the emergency alarm and call automatically. A brief pause resets the count, so it won't go off from a bump or a jolt.
+          Turn this on instead — shake the phone hard and continuously for 3 seconds and it triggers the emergency alarm and call automatically. A brief pause resets the count, so it won't go off from a bump or a jolt.
         </p>
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
@@ -545,21 +545,72 @@
       );
     }
 
-    // EMERGENCY — CALL FOR HELP: this button now only dials the number.
-    // It no longer requests location permission or sends an SMS, so
-    // there's no repeated permission prompt in the way — one tap calls.
+    // EMERGENCY — CALL FOR HELP: beeps loudly for 10 seconds, then shows a
+    // big on-screen "tap to call" button. No location permission or SMS is
+    // requested here. A real tap is required to place the call — phones
+    // require a genuine user gesture to open the dialer, which a timer
+    // alone can't provide, so the alarm ends with a prompt to tap.
     // Live location is still available separately via the
     // "SEND LIVE LOCATION" button below.
+    let emergencyCountdownInterval = null;
+
+    function showCallPrompt() {
+      const existing = $("callPromptOverlay");
+      if (existing) existing.remove();
+
+      const overlay = document.createElement("div");
+      overlay.id = "callPromptOverlay";
+      overlay.style.cssText =
+        "position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px;color:#fff;background:#111;text-align:center;";
+
+      const text = document.createElement("div");
+      text.style.cssText = "font-size:clamp(1.4rem,6vw,2.2rem);font-weight:900;";
+      text.textContent = "🚨 Emergency alarm finished";
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "📞 TAP TO CALL FOR HELP";
+      btn.style.cssText =
+        "min-height:90px;width:100%;max-width:420px;padding:20px 24px;font-size:clamp(1.2rem,5.5vw,1.8rem);font-weight:900;border:none;border-radius:16px;background:#fff;color:#991b1b;box-shadow:0 6px 24px rgba(0,0,0,0.5);cursor:pointer;";
+      btn.addEventListener("click", () => {
+        window.location.href = "tel:" + EMERGENCY_NUMBER;
+        overlay.remove();
+      });
+
+      overlay.appendChild(text);
+      overlay.appendChild(btn);
+      document.body.appendChild(overlay);
+    }
+
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
+
       const box = $("emergencyStatus");
+      let secondsLeft = 10;
       if (box) {
         box.hidden = false;
         box.className = "status-message info";
-        box.textContent = "☎️ Calling for help now...";
+        box.textContent = "🔊 Alarm sounding... " + secondsLeft + "s";
       }
-      stopAlarm();
-      window.location.href = "tel:" + EMERGENCY_NUMBER;
+
+      clearInterval(emergencyCountdownInterval);
+      emergencyCountdownInterval = setInterval(() => {
+        secondsLeft -= 1;
+        if (box && secondsLeft > 0) {
+          box.textContent = "🔊 Alarm sounding... " + secondsLeft + "s";
+        }
+        if (secondsLeft <= 0) clearInterval(emergencyCountdownInterval);
+      }, 1000);
+
+      setTimeout(() => {
+        clearInterval(emergencyCountdownInterval);
+        stopAlarm();
+        if (box) {
+          box.className = "status-message success";
+          box.textContent = "✓ Alarm finished. Tap the button on screen to call.";
+        }
+        showCallPrompt();
+      }, 10000);
     });
 
     $("sendLocationButton").addEventListener("click", () => {
@@ -592,14 +643,14 @@
       rather than raw motion. Walking, being in a bag, or a normal bump
       changes acceleration gradually; a violent, deliberate shake changes
       it sharply and repeatedly. Requiring that sharp shaking continue for
-      a full 10 seconds (not just a couple of quick spikes) is what tells
+      a full 3 seconds (not just a single spike) is what tells
       the two apart and avoids accidental triggers.
     */
 
     let shakeEnabled = false;
     let lastAcceleration = null;
     const SHAKE_JERK_THRESHOLD = 35;   // m/s^2 change between readings — a hard, violent shake
-    const SHAKE_REQUIRED_MS = 10000;   // must keep shaking this long, continuously
+    const SHAKE_REQUIRED_MS = 3000;    // must keep shaking this long, continuously
     const SHAKE_MAX_GAP_MS = 700;      // a pause longer than this resets the streak
     const SHAKE_COOLDOWN_MS = 8000;
     let shakeStreakStartedAt = null;
@@ -631,7 +682,7 @@
 
       if (isSpike) {
         // A gap longer than SHAKE_MAX_GAP_MS since the last spike means the
-        // person stopped shaking, so a fresh 10-second streak has to start over.
+        // person stopped shaking, so a fresh 3-second streak has to start over.
         if (!lastSpikeAt || now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
           shakeStreakStartedAt = now;
         }
@@ -642,7 +693,7 @@
         if (status && elapsedMs < SHAKE_REQUIRED_MS) {
           status.hidden = false;
           status.className = "status-message info";
-          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / 10s";
+          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / 3s";
         }
 
         if (elapsedMs >= SHAKE_REQUIRED_MS) {
@@ -652,7 +703,7 @@
           $("emergencyButton").click();
         }
       } else if (lastSpikeAt && now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
-        // Shaking stopped before reaching 10 seconds — reset the streak.
+        // Shaking stopped before reaching 3 seconds — reset the streak.
         shakeStreakStartedAt = null;
         lastSpikeAt = null;
       }
