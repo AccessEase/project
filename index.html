@@ -401,7 +401,7 @@
 
     <main>
       <!-- Emergency -->
-      <section class="emergency-box" id="emergencyBox">
+      <section class="emergency-box">
         <h2>🚨 EMERGENCY HELP</h2>
         <p>Alarm, live location, and call support</p>
         <button id="emergencyButton" class="emergency-button" type="button">
@@ -410,6 +410,13 @@
         <button id="sendLocationButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
           📍 SEND LIVE LOCATION
         </button>
+        <button id="shakeToggleButton" class="emergency-button" type="button" style="margin-top:10px;color:#0b315d;">
+          📳 ENABLE SHAKE TO ALERT
+        </button>
+        <p class="note" style="color:#fff;opacity:0.9;">
+          A phone's volume buttons can't be read by a webpage (browsers block that for privacy).
+          Turn this on instead — shake the phone hard and continuously for 10 seconds and it triggers the emergency alarm, text, and call automatically. A brief pause resets the count, so it won't go off from a bump or a jolt.
+        </p>
         <div id="emergencyStatus" class="status-message" hidden></div>
       </section>
 
@@ -466,7 +473,6 @@
     let lastDetectedSign = "";
     let lastSpokenAt = 0;
 
-    let currentProfile = null;
     let blindStream = null;
     let blindRecognition = null;
     let blindListening = false;
@@ -539,72 +545,30 @@
       );
     }
 
-    // EMERGENCY — CALL FOR HELP: beeps loudly for 10 seconds, then shows a
-    // big on-screen "tap to call" button. No location permission or SMS is
-    // requested here. A real tap is required to place the call — phones
-    // require a genuine user gesture to open the dialer, which a timer
-    // alone can't provide, so the alarm ends with a prompt to tap.
-    // Live location is still available separately via the
-    // "SEND LIVE LOCATION" button below.
-    let emergencyCountdownInterval = null;
-
-    function showCallPrompt() {
-      const existing = $("callPromptOverlay");
-      if (existing) existing.remove();
-
-      const overlay = document.createElement("div");
-      overlay.id = "callPromptOverlay";
-      overlay.style.cssText =
-        "position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px;color:#fff;background:#111;text-align:center;";
-
-      const text = document.createElement("div");
-      text.style.cssText = "font-size:clamp(1.4rem,6vw,2.2rem);font-weight:900;";
-      text.textContent = "🚨 Emergency alarm finished";
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = "📞 TAP TO CALL FOR HELP";
-      btn.style.cssText =
-        "min-height:90px;width:100%;max-width:420px;padding:20px 24px;font-size:clamp(1.2rem,5.5vw,1.8rem);font-weight:900;border:none;border-radius:16px;background:#fff;color:#991b1b;box-shadow:0 6px 24px rgba(0,0,0,0.5);cursor:pointer;";
-      btn.addEventListener("click", () => {
-        window.location.href = "tel:" + EMERGENCY_NUMBER;
-        overlay.remove();
-      });
-
-      overlay.appendChild(text);
-      overlay.appendChild(btn);
-      document.body.appendChild(overlay);
-    }
-
     $("emergencyButton").addEventListener("click", () => {
       startAlarm();
+      getLiveLocation((locationUrl) => {
+        const msg =
+          "EMERGENCY: I need immediate help." +
+          (locationUrl ? " My location: " + locationUrl : "");
+        const box = $("emergencyStatus");
 
-      const box = $("emergencyStatus");
-      let secondsLeft = 10;
-      if (box) {
-        box.hidden = false;
-        box.className = "status-message info";
-        box.textContent = "🔊 Alarm sounding... " + secondsLeft + "s";
-      }
-
-      clearInterval(emergencyCountdownInterval);
-      emergencyCountdownInterval = setInterval(() => {
-        secondsLeft -= 1;
-        if (box && secondsLeft > 0) {
-          box.textContent = "🔊 Alarm sounding... " + secondsLeft + "s";
-        }
-        if (secondsLeft <= 0) clearInterval(emergencyCountdownInterval);
-      }, 1000);
-
-      setTimeout(() => {
-        clearInterval(emergencyCountdownInterval);
-        stopAlarm();
+        // Open the messaging app with the emergency contact and message
+        // (including the live location link) already filled in. Browsers
+        // can't send an SMS silently with no user action at all — this is
+        // a platform security restriction, not something this app can skip —
+        // so one tap of "Send" in the messaging app is still needed.
         if (box) {
-          box.className = "status-message success";
-          box.textContent = "✓ Alarm finished. Tap the button on screen to call.";
+          box.className = "status-message info";
+          box.textContent = "✓ Location found. Opening a text with your location — tap Send there, then we'll call.";
         }
-        showCallPrompt();
-      }, 10000);
+        window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
+
+        setTimeout(() => {
+          stopAlarm();
+          window.location.href = "tel:" + EMERGENCY_NUMBER;
+        }, 10000);
+      });
     });
 
     $("sendLocationButton").addEventListener("click", () => {
@@ -637,15 +601,14 @@
       rather than raw motion. Walking, being in a bag, or a normal bump
       changes acceleration gradually; a violent, deliberate shake changes
       it sharply and repeatedly. Requiring that sharp shaking continue for
-      a full 3 seconds (not just a single spike) is what tells
+      a full 10 seconds (not just a couple of quick spikes) is what tells
       the two apart and avoids accidental triggers.
     */
 
     let shakeEnabled = false;
     let lastAcceleration = null;
     const SHAKE_JERK_THRESHOLD = 35;   // m/s^2 change between readings — a hard, violent shake
-    const SHAKE_REQUIRED_MS = 3000;    // must keep shaking this long, continuously (non-blind profiles)
-    const BLIND_SHAKE_REQUIRED_MS = 2000; // shorter streak while the blind profile is active
+    const SHAKE_REQUIRED_MS = 10000;   // must keep shaking this long, continuously
     const SHAKE_MAX_GAP_MS = 700;      // a pause longer than this resets the streak
     const SHAKE_COOLDOWN_MS = 8000;
     let shakeStreakStartedAt = null;
@@ -658,9 +621,6 @@
 
       const current = { x: acc.x || 0, y: acc.y || 0, z: acc.z || 0 };
       const now = Date.now();
-      const isBlind = currentProfile === "blind";
-      const requiredMs = isBlind ? BLIND_SHAKE_REQUIRED_MS : SHAKE_REQUIRED_MS;
-      const requiredLabel = isBlind ? "2s" : "3s";
 
       if (now - lastShakeTriggerAt <= SHAKE_COOLDOWN_MS) {
         lastAcceleration = current;
@@ -680,32 +640,28 @@
 
       if (isSpike) {
         // A gap longer than SHAKE_MAX_GAP_MS since the last spike means the
-        // person stopped shaking, so a fresh streak has to start over.
+        // person stopped shaking, so a fresh 10-second streak has to start over.
         if (!lastSpikeAt || now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
           shakeStreakStartedAt = now;
         }
         lastSpikeAt = now;
 
-        const status = isBlind ? $("blindStatus") : $("emergencyStatus");
+        const status = $("emergencyStatus");
         const elapsedMs = now - shakeStreakStartedAt;
-        if (status && elapsedMs < requiredMs) {
-          if (!isBlind) status.hidden = false;
-          status.className = isBlind ? "sign-result" : "status-message info";
-          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / " + requiredLabel;
+        if (status && elapsedMs < SHAKE_REQUIRED_MS) {
+          status.hidden = false;
+          status.className = "status-message info";
+          status.textContent = "📳 Keep shaking… " + (elapsedMs / 1000).toFixed(1) + "s / 10s";
         }
 
-        if (elapsedMs >= requiredMs) {
+        if (elapsedMs >= SHAKE_REQUIRED_MS) {
           lastShakeTriggerAt = now;
           shakeStreakStartedAt = null;
           lastSpikeAt = null;
-          if (isBlind) {
-            blindSendHelpAndVideoCall();
-          } else {
-            $("emergencyButton").click();
-          }
+          $("emergencyButton").click();
         }
       } else if (lastSpikeAt && now - lastSpikeAt > SHAKE_MAX_GAP_MS) {
-        // Shaking stopped before reaching the required streak — reset it.
+        // Shaking stopped before reaching 10 seconds — reset the streak.
         shakeStreakStartedAt = null;
         lastSpikeAt = null;
       }
@@ -751,17 +707,10 @@
       speak("Shake to alert is off.");
     }
 
-    // Shake-to-alert UI entry point is currently hidden — the button was
-    // removed from the emergency section — but the underlying
-    // enableShakeToAlert/disableShakeToAlert/handleDeviceMotion logic above
-    // is untouched, so it can be wired back up to a control later.
-    const shakeToggleButtonEl = $("shakeToggleButton");
-    if (shakeToggleButtonEl) {
-      shakeToggleButtonEl.addEventListener("click", () => {
-        if (shakeEnabled) disableShakeToAlert();
-        else enableShakeToAlert();
-      });
-    }
+    $("shakeToggleButton").addEventListener("click", () => {
+      if (shakeEnabled) disableShakeToAlert();
+      else enableShakeToAlert();
+    });
 
     /* ---------- TTS ---------- */
 
@@ -1102,11 +1051,6 @@
       "surroundings", "describe the scene", "look around"
     ];
 
-    // Phrases that trigger sending live location + starting a video call
-    const BLIND_HELP_TRIGGERS = [
-      "help", "help me", "i need help", "emergency", "call for help"
-    ];
-
     function captureBlindFrame() {
       const video = $("blindVideo");
       if (!video || !video.videoWidth) return null;
@@ -1209,68 +1153,6 @@
       }
     }
 
-    /* ---------- Blind: voice/shake "help" — live location + video call ---------- */
-
-    let blindCallRoomUrl = null;
-
-    function getBlindCallRoomUrl() {
-      // A fresh room per session, reused across repeated triggers so a
-      // second "help" doesn't start a second, different call.
-      if (!blindCallRoomUrl) {
-        const roomId = "AccessEase-" + Math.random().toString(36).slice(2, 10);
-        blindCallRoomUrl = "https://meet.jit.si/" + roomId;
-      }
-      return blindCallRoomUrl;
-    }
-
-    let sendingBlindHelp = false;
-
-    function blindSendHelpAndVideoCall() {
-      if (sendingBlindHelp) return;
-      sendingBlindHelp = true;
-
-      const status = $("blindStatus");
-      speak("Sending your location and starting a video call for help.");
-      if (status) {
-        status.className = "sign-result";
-        status.textContent = "🆘 Sending your location and starting a video call...";
-      }
-
-      const videoUrl = getBlindCallRoomUrl();
-
-      // Opening a new tab needs a direct tap in most browsers — a voice
-      // command or a shake doesn't count as that tap, so this may be
-      // blocked by the browser's popup blocker. It's attempted anyway;
-      // the video link is also included in the text below either way, so
-      // it can still be opened from there.
-      try {
-        window.open(videoUrl, "_blank");
-      } catch (e) {}
-
-      const sendSms = (mapsUrl) => {
-        const msg =
-          "I need help." +
-          (mapsUrl ? " My location: " + mapsUrl : "") +
-          " Video call: " + videoUrl;
-        window.location.href = "sms:" + EMERGENCY_NUMBER + "?body=" + encodeURIComponent(msg);
-        sendingBlindHelp = false;
-      };
-
-      if (!navigator.geolocation) {
-        sendSms(null);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const mapsUrl = "https://maps.google.com/?q=" + pos.coords.latitude + "," + pos.coords.longitude;
-          sendSms(mapsUrl);
-        },
-        () => sendSms(null),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    }
-
     function setupBlindRecognition() {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognitionAPI) return null;
@@ -1286,13 +1168,6 @@
           const transcript = event.results[i][0].transcript.trim().toLowerCase();
           const micButton = $("blindMicButton");
           if (micButton) micButton.title = "Heard: " + transcript;
-
-          // "Help" takes priority over a surroundings request.
-          const heardHelp = BLIND_HELP_TRIGGERS.some((phrase) => transcript.includes(phrase));
-          if (heardHelp) {
-            blindSendHelpAndVideoCall();
-            continue;
-          }
 
           const matched = SURROUNDINGS_TRIGGERS.some((phrase) => transcript.includes(phrase));
           if (matched) {
@@ -1415,10 +1290,6 @@
               or tap "Describe Now" any time — you'll hear a quick, plain call-out of what's ahead
               (e.g. "it's a laptop on a table", "you're in a crowded area", "there's a box in front of you").
             </p>
-            <p class="note">
-              For emergencies: say "help" while listening is on, or shake the phone hard for 2 seconds —
-              this sends your live location by text and starts a video call, no screen tap needed.
-            </p>
           </article>
         `
       },
@@ -1528,16 +1399,7 @@
       stopBlindVideo();
 
       const profile = profiles[profileName];
-      currentProfile = profileName;
       localStorage.setItem("accessEaseProfile", profileName);
-
-      // The blind profile has no visible emergency button to tap — instead,
-      // saying "help" or shaking for 2 seconds sends live location and
-      // starts a video call (see blindSendHelpAndVideoCall). The main
-      // emergency section is hidden here so it's not shown for a profile
-      // that can't see or reliably tap it.
-      const emergencyBox = $("emergencyBox");
-      if (emergencyBox) emergencyBox.hidden = (profileName === "blind");
 
       $("selectionSection").hidden = true;
       $("dashboard").hidden = false;
@@ -1614,23 +1476,9 @@
       btn.addEventListener("click", () => renderProfile(btn.dataset.profile));
     });
 
-    // Shake-to-alert has no toggle button anymore, so it's turned on
-    // automatically instead — but only after a real tap somewhere in the
-    // app, since iOS requires an actual user gesture before it will grant
-    // motion-sensor permission. This listens for that first tap once,
-    // then removes itself.
-    document.addEventListener(
-      "click",
-      () => { enableShakeToAlert(); },
-      { once: true }
-    );
-
     $("changeProfileButton").addEventListener("click", () => {
       stopSignCamera();
       stopBlindVideo();
-      currentProfile = null;
-      const emergencyBox = $("emergencyBox");
-      if (emergencyBox) emergencyBox.hidden = false;
       $("dashboard").hidden = true;
       $("selectionSection").hidden = false;
       $("selectionSection").scrollIntoView({ behavior: "smooth" });
