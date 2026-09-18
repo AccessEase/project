@@ -1258,10 +1258,12 @@ function grabFrame() {
 
 const SCENE_PROMPT =
   "The attached photo is the live rear-camera view of a blind person's surroundings right now. " +
-  "Tell them what is in front of them the way a friend standing beside them would blurt it out: " +
-  "\"It's a laptop on a table.\" \"You're on a crowded street.\" \"Empty hallway, nothing in the way.\" \"Someone is walking toward you.\" " +
-  "Then add at most one short sentence with direction, distance, or a hazard worth knowing about — steps, furniture, doors, traffic. " +
-  "Two short sentences at most. No hedging, no \"I can see\", and never mention a photo, image or camera.";
+  "Tell them what is in front of them the way a friend standing beside them would blurt it out, in one plain sentence " +
+  "naming both the nearest object AND the kind of place it's in when both are clear: " +
+  "\"There's a laptop in front of you, and this is a crowded place.\" \"You're in an empty hallway, nothing in the way.\" \"Someone is walking toward you on a quiet street.\" " +
+  "If only one is clear, just say that one plainly. " +
+  "Then add at most one short follow-up sentence with direction, distance, or a hazard worth knowing about — steps, furniture, doors, traffic. " +
+  "Two short sentences at most. No hedging, no \"I can see\" or \"it appears\", and never mention a photo, image or camera.";
 
 async function describeScene() {
   const readout = $("sceneReadout");
@@ -1302,9 +1304,26 @@ async function describeScene() {
     }
   } catch (err) {
     const code = err && err.code;
-    let line = "Something went wrong. Tap Describe now to try again.";
-    if (code === "not_granted") line = "You declined access for this session. Reload the page to allow it.";
-    else if (code === "rate_limited") line = "Too many looks at once. Wait a few seconds and try again.";
+    console.error("describeScene failed:", code, err && err.message, err);
+
+    const lines = {
+      not_granted: "You declined access for this session. Reload the page to allow it.",
+      rate_limited: "Too many looks at once. Wait a few seconds and try again.",
+      session_expired: "Please sign in again, then try Describe now.",
+      sampling_disabled: "Scene description isn't turned on for this account.",
+      images_unavailable: "This view can't send photos to Claude.",
+      image_rejected: "That frame couldn't be used. Try again with more light.",
+      refused: "That request was declined. Try Describe now again.",
+      empty_completion: "No answer came back. Try Describe now again.",
+      upstream_error: "The description service had a hiccup. Try again in a moment.",
+      not_declared: "This page needs to be reloaded to enable description.",
+      capability_disabled: "Description isn't enabled for this view.",
+      capability_removed: "Update the Claude app to use description here.",
+      prompt_too_large: "Internal error preparing the request.",
+      invalid_request: "Internal error preparing the request."
+    };
+    const line = lines[code] || ("Couldn't describe the scene (" + (code || "unknown error") + "). Tap Describe now to try again.");
+
     setReadout(readout, { tone: "warn", label: "Couldn't describe the scene", detail: line });
     speak(line);
   } finally {
