@@ -324,6 +324,36 @@ svg { display: block; }
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Emergency contact ---------- */
+.emergency-contact {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: rgba(0,0,0,.20);
+  border: 1px solid rgba(255,255,255,.22);
+}
+.emergency-contact label {
+  display: block;
+  margin-bottom: 6px;
+  color: rgba(255,255,255,.9);
+  font-size: .8rem;
+  font-weight: 700;
+}
+.emergency-contact input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 10px;
+  background: rgba(255,255,255,.96);
+  color: #111;
+  outline: none;
+}
+.emergency-contact input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.2); }
+.emergency-contact .saved { margin-top: 5px; color: rgba(255,255,255,.72); font-size: .75rem; }
+
 /* ---------- Sections ---------- */
 
 .section { margin-top: 26px; }
@@ -644,7 +674,14 @@ footer {
     <section class="alarm-panel" aria-labelledby="alarmTitle">
       <div class="alarm-head">
         <h2 id="alarmTitle">Emergency</h2>
-        <span id="alarmContact">Contact 8891 072 007</span>
+        <span id="alarmContact">Google Meet</span>
+      </div>
+
+      <div class="emergency-contact">
+        <label for="emergencyGmail">Emergency Google account (Gmail)</label>
+        <input id="emergencyGmail" type="email" inputmode="email" autocomplete="email"
+               placeholder="example@gmail.com" aria-describedby="gmailSaved" />
+        <div id="gmailSaved" class="saved">Saved on this device. This is used when Emergency is triggered.</div>
       </div>
 
       <button id="btnEmergency" class="alarm-primary" type="button">
@@ -655,7 +692,7 @@ footer {
         </span>
         <span>
           <strong>Sound alarm and call</strong>
-          <small>Alarm rings for 10 seconds, then dials</small>
+          <small>Alarm rings for 10 seconds, then opens Google Meet</small>
         </span>
       </button>
 
@@ -764,6 +801,8 @@ footer {
 "use strict";
 
 const EMERGENCY_NUMBER = "8891072007";
+const EMERGENCY_GMAIL_KEY = "accessEaseEmergencyGmail";
+const MEET_CALLS_URL = "https://meet.google.com/calling/";
 
 const $ = (id) => document.getElementById(id);
 
@@ -774,6 +813,35 @@ function remember(key, value) {
 }
 function recall(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+function getEmergencyGmail() {
+  const input = $("emergencyGmail");
+  return (input ? input.value : recall(EMERGENCY_GMAIL_KEY) || "").trim();
+}
+
+function saveEmergencyGmail() {
+  const input = $("emergencyGmail");
+  if (!input) return "";
+  const email = input.value.trim();
+  if (email) remember(EMERGENCY_GMAIL_KEY, email);
+  return email;
+}
+
+function openGoogleMeetCall() {
+  const email = getEmergencyGmail();
+  if (!email) {
+    setAlarmStatus("Enter an emergency Gmail address first.");
+    $("emergencyGmail")?.focus();
+    return false;
+  }
+  saveEmergencyGmail();
+  // Google does not expose a public URL that lets an arbitrary web page
+  // directly dial a Gmail address. Open the Meet Calls screen immediately;
+  // the saved address is shown in our UI for the intended recipient.
+  openExternal(MEET_CALLS_URL);
+  setAlarmStatus("Opening Google Meet Calls for " + email + " now.");
+  return true;
 }
 
 function openExternal(href) {
@@ -867,8 +935,7 @@ $("btnEmergency").addEventListener("click", () => {
     countdownTimer = null;
     stopAlarm();
     $("btnCancel").hidden = true;
-    setAlarmStatus("Dialling " + EMERGENCY_NUMBER + " now.");
-    openExternal("tel:" + EMERGENCY_NUMBER);
+    openGoogleMeetCall();
   }, 1000);
 });
 
@@ -1652,7 +1719,14 @@ $("btnChange").addEventListener("click", () => {
   $("chooser").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-$("alarmContact").textContent = "Contact " + EMERGENCY_NUMBER.replace(/(\d{4})(\d{3})(\d{3})/, "$1 $2 $3");
+const savedEmergencyGmail = recall(EMERGENCY_GMAIL_KEY);
+if (savedEmergencyGmail) {
+  $("emergencyGmail").value = savedEmergencyGmail;
+}
+$("emergencyGmail").addEventListener("change", saveEmergencyGmail);
+$("emergencyGmail").addEventListener("blur", saveEmergencyGmail);
+
+$("alarmContact").textContent = "Meet call";
 
 const saved = recall("accessEaseProfile");
 if (saved && profiles[saved]) openProfile(saved);
