@@ -680,7 +680,7 @@ footer {
 
       <p class="alarm-note">
         A web page can't read your volume buttons — browsers block that. Shake to alert is the hands-free
-        substitute: shake hard without stopping for ten seconds and the alarm, text and call all fire.
+        substitute: shake hard without stopping for three seconds and the alarm, text and call all fire.
         Pause, and the count starts over, so a bump in your pocket won't set it off.
       </p>
     </section>
@@ -909,7 +909,7 @@ $("btnLocation").addEventListener("click", () => {
 */
 
 const SHAKE_JERK = 35;        // m/s² change between readings
-const SHAKE_HOLD_MS = 10000;  // must keep shaking this long
+const SHAKE_HOLD_MS = 3000;   // must keep shaking this long
 const SHAKE_GAP_MS = 700;     // a longer pause resets the streak
 const SHAKE_COOLDOWN_MS = 8000;
 
@@ -941,7 +941,7 @@ function onMotion(event) {
 
     const held = now - streakStart;
     if (held < SHAKE_HOLD_MS) {
-      setAlarmStatus("Keep shaking — " + (held / 1000).toFixed(1) + "s of 10s");
+      setAlarmStatus("Keep shaking — " + (held / 1000).toFixed(1) + "s of 3s");
     } else {
       lastTrigger = now;
       streakStart = null;
@@ -965,7 +965,7 @@ function enableShake() {
   const start = () => {
     window.addEventListener("devicemotion", onMotion);
     shakeOnState(true);
-    setAlarmStatus("Shake to alert is on. Shake hard for ten seconds to call for help.");
+    setAlarmStatus("Shake to alert is on. Shake hard for three seconds to call for help.");
     speak("Shake to alert is on.");
   };
 
