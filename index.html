@@ -527,6 +527,80 @@ svg { display: block; }
 
 .fineprint { margin: 12px 0 0; color: var(--ink-soft); font-size: 0.82rem; line-height: 1.55; }
 
+.signals-present {
+  margin: 14px 0 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.signals-present h4 {
+  margin: 0 0 10px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1rem;
+}
+.signals-present-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 36px;
+}
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-firm);
+  background: #fff;
+  font-size: .86rem;
+  font-weight: 650;
+}
+.signal-chip .signal-emoji { font-size: 1.1rem; }
+.signal-chip.empty {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.signal-catalog {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.signal-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.signal-card.active {
+  border-color: var(--pine);
+  background: var(--pine-tint);
+  transform: translateY(-1px);
+}
+.signal-card .signal-card-emoji { font-size: 1.45rem; flex: none; }
+.signal-card .signal-card-label {
+  font-size: .86rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.signal-card .signal-card-note {
+  display: block;
+  margin-top: 2px;
+  font-size: .72rem;
+  color: var(--ink-soft);
+  font-weight: 450;
+}
+@media (max-width: 560px) {
+  .signal-catalog { grid-template-columns: 1fr; }
+}
+
+
 .legend { margin: 0 0 14px; }
 .legend dl { margin: 0; display: grid; gap: 8px; }
 .legend .group {
@@ -909,7 +983,7 @@ $("btnLocation").addEventListener("click", () => {
 */
 
 const SHAKE_JERK = 35;        // m/s² change between readings
-const SHAKE_HOLD_MS = 3000;   // must keep shaking this long
+const SHAKE_HOLD_MS = 3000;  // must keep shaking this long
 const SHAKE_GAP_MS = 700;     // a longer pause resets the streak
 const SHAKE_COOLDOWN_MS = 8000;
 
@@ -1020,7 +1094,16 @@ function showPlacard(message) {
 
 /* ---------- Hand sign recognition ---------- */
 
-function fingerUp(lm, tip, pip) { return lm[tip].y < lm[pip].y - 0.02; }
+/*
+  Common real-world hand signals.
+  Meanings can vary by country/culture; these labels describe the common
+  everyday interpretation used by this app. Recognition is landmark-based,
+  so similar-looking gestures can occasionally be misclassified.
+*/
+
+function fingerUp(lm, tip, pip) {
+  return lm[tip].y < lm[pip].y - 0.025;
+}
 
 function palmCenter(lm) {
   const idx = [0, 5, 9, 13, 17];
@@ -1034,68 +1117,148 @@ function handScale(lm) {
 }
 
 function thumbExtended(lm) {
-  return Math.hypot(lm[4].x - lm[2].x, lm[4].y - lm[2].y) > handScale(lm) * 0.6;
+  const scale = handScale(lm);
+  return Math.hypot(lm[4].x - lm[2].x, lm[4].y - lm[2].y) > scale * 0.55;
 }
 
 function thumbDirection(lm) {
   if (!thumbExtended(lm)) return "tucked";
   const p = palmCenter(lm);
   const dx = lm[4].x - p.x, dy = lm[4].y - p.y;
-  if (Math.abs(dy) > Math.abs(dx) * 1.2) return dy < 0 ? "up" : "down";
+  if (Math.abs(dy) > Math.abs(dx) * 1.15) return dy < 0 ? "up" : "down";
   return "side";
 }
 
 function pinched(lm) {
-  return Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y) < handScale(lm) * 0.35;
+  return Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y) < handScale(lm) * 0.34;
 }
 
-// key = thumbExtended,index,middle,ring,pinky
-const SIGNS = {
-  "0,1,0,0,0": { label: "Me", emoji: "☝️" },
-  "0,0,0,0,1": { label: "A little bit", emoji: "🤏" },
-  "1,0,0,0,1": { label: "Call me", emoji: "🤙" },
-  "1,1,0,0,0": { label: "Wait a moment", emoji: "🤚" },
-  "0,1,1,0,0": { label: "Two", emoji: "✌️" },
-  "0,1,0,0,1": { label: "Rock on", emoji: "🤘" },
-  "1,1,0,0,1": { label: "I love you", emoji: "🤟" },
-  "0,1,1,1,0": { label: "Three", emoji: "🖖" },
-  "0,1,1,1,1": { label: "Hello", emoji: "👋" },
-  "1,1,1,1,0": { label: "Please", emoji: "🙏" },
-  "1,1,1,1,1": { label: "High five", emoji: "🖐️" },
-  "0,0,1,1,1": { label: "I'm sorry", emoji: "😔" },
-  "0,0,0,1,0": { label: "One moment", emoji: "⏳" },
-  "1,0,0,1,0": { label: "Repeat that, please", emoji: "🔁" },
-  "0,0,1,0,1": { label: "I don't understand", emoji: "🤷" }
-};
+function fingerState(lm) {
+  return {
+    thumb: thumbExtended(lm),
+    index: fingerUp(lm, 8, 6),
+    middle: fingerUp(lm, 12, 10),
+    ring: fingerUp(lm, 16, 14),
+    pinky: fingerUp(lm, 20, 18)
+  };
+}
+
+function handKey(s) {
+  return [s.thumb, s.index, s.middle, s.ring, s.pinky]
+    .map(Boolean).map(v => v ? 1 : 0).join(",");
+}
+
+const REAL_WORLD_SIGNS = [
+  { label: "Thumbs up", emoji: "👍", note: "Approval / good" },
+  { label: "Thumbs down", emoji: "👎", note: "Disapproval / no" },
+  { label: "Stop", emoji: "✋", note: "Stop / wait" },
+  { label: "Open hand", emoji: "🖐️", note: "Open palm" },
+  { label: "Fist", emoji: "✊", note: "Closed hand" },
+  { label: "Pointing", emoji: "☝️", note: "Point / one" },
+  { label: "Peace", emoji: "✌️", note: "Two / peace" },
+  { label: "Three", emoji: "🤟", note: "Three fingers" },
+  { label: "Four", emoji: "🖖", note: "Four fingers" },
+  { label: "Five", emoji: "🖐️", note: "Five fingers" },
+  { label: "OK", emoji: "👌", note: "OK / agreement" },
+  { label: "Pinch", emoji: "🤏", note: "Small amount / pinch" },
+  { label: "Call me", emoji: "🤙", note: "Call / phone" },
+  { label: "Rock on", emoji: "🤘", note: "Rock / celebration" },
+  { label: "I love you", emoji: "🤟", note: "ASL-style ILY" },
+  { label: "One", emoji: "1️⃣", note: "Number one" },
+  { label: "Two", emoji: "2️⃣", note: "Number two" },
+  { label: "Three fingers", emoji: "3️⃣", note: "Number three" },
+  { label: "Four fingers", emoji: "4️⃣", note: "Number four" },
+  { label: "Five fingers", emoji: "5️⃣", note: "Number five" }
+];
 
 function readSign(lm) {
-  const index = fingerUp(lm, 8, 6);
-  const middle = fingerUp(lm, 12, 10);
-  const ring = fingerUp(lm, 16, 14);
-  const pinky = fingerUp(lm, 20, 18);
-  const thumb = thumbExtended(lm);
+  const s = fingerState(lm);
+  const key = handKey(s);
 
-  if (pinched(lm) && middle && ring && pinky) return { label: "OK", emoji: "👌" };
-
-  if (!index && !middle && !ring && !pinky) {
+  // Strongly recognizable thumb gestures.
+  if (!s.index && !s.middle && !s.ring && !s.pinky && s.thumb) {
     const dir = thumbDirection(lm);
-    if (dir === "tucked") return { label: "Help me", emoji: "🆘" };
-    if (dir === "up") return { label: "Yes", emoji: "👍" };
-    if (dir === "down") return { label: "No", emoji: "👎" };
-    return { label: "Stop, please", emoji: "✋" };
+    if (dir === "up") return { label: "Thumbs up", emoji: "👍" };
+    if (dir === "down") return { label: "Thumbs down", emoji: "👎" };
   }
 
-  const key = [thumb ? 1 : 0, index ? 1 : 0, middle ? 1 : 0, ring ? 1 : 0, pinky ? 1 : 0].join(",");
-  return SIGNS[key] || null;
+  // Open palm.
+  if (s.index && s.middle && s.ring && s.pinky && s.thumb) {
+    return { label: "Open hand", emoji: "🖐️" };
+  }
+
+  // Fist.
+  if (!s.index && !s.middle && !s.ring && !s.pinky && !s.thumb) {
+    return { label: "Fist", emoji: "✊" };
+  }
+
+  // OK sign: thumb/index touching while the other three fingers are up.
+  if (pinched(lm) && s.middle && s.ring && s.pinky) {
+    return { label: "OK", emoji: "👌" };
+  }
+
+  // Pinch: thumb/index touching with the remaining fingers folded.
+  if (pinched(lm) && !s.middle && !s.ring && !s.pinky) {
+    return { label: "Pinch", emoji: "🤏" };
+  }
+
+  // Common combinations.
+  if (s.thumb && !s.index && !s.middle && !s.ring && s.pinky)
+    return { label: "Call me", emoji: "🤙" };
+
+  if (s.thumb && s.index && !s.middle && !s.ring && s.pinky)
+    return { label: "I love you", emoji: "🤟" };
+
+  if (!s.thumb && s.index && !s.middle && !s.ring && !s.pinky)
+    return { label: "Pointing", emoji: "☝️" };
+
+  if (!s.thumb && s.index && s.middle && !s.ring && !s.pinky)
+    return { label: "Peace", emoji: "✌️" };
+
+  if (!s.thumb && s.index && s.middle && s.ring && !s.pinky)
+    return { label: "Three", emoji: "3️⃣" };
+
+  if (!s.thumb && s.index && s.middle && s.ring && s.pinky)
+    return { label: "Four", emoji: "4️⃣" };
+
+  // Numeric alternatives where the thumb is the extra extended digit.
+  if (s.thumb && s.index && !s.middle && !s.ring && !s.pinky)
+    return { label: "Two", emoji: "2️⃣" };
+
+  if (s.thumb && s.index && s.middle && !s.ring && !s.pinky)
+    return { label: "Three fingers", emoji: "3️⃣" };
+
+  if (s.thumb && s.index && s.middle && s.ring && !s.pinky)
+    return { label: "Four fingers", emoji: "4️⃣" };
+
+  return null;
+}
+
+function readTwoHandSign(landmarks) {
+  if (!landmarks || landmarks.length < 2) return null;
+  const a = landmarks[0], b = landmarks[1];
+  const sa = fingerState(a), sb = fingerState(b);
+
+  // Two open palms held together is a common visual prayer/namaste gesture.
+  const openA = sa.thumb && sa.index && sa.middle && sa.ring && sa.pinky;
+  const openB = sb.thumb && sb.index && sb.middle && sb.ring && sb.pinky;
+
+  if (openA && openB) {
+    const pa = palmCenter(a), pb = palmCenter(b);
+    const closeEnough = Math.hypot(pa.x - pb.x, pa.y - pb.y) < 0.34;
+    if (closeEnough) return { label: "Prayer / Namaste", emoji: "🙏" };
+  }
+
+  return null;
 }
 
 /* ---------- Sign camera ---------- */
 
 let signStream = null, signCam = null, lastSign = "", lastSpokeAt = 0;
+let presentSignals = new Map();
 
 function setReadout(el, opts) {
   if (!el) return;
-  // The sign camera calls this on every frame; skip identical repaints.
   const fingerprint = [opts.tone, opts.emoji, opts.label, opts.detail].join("|");
   if (el.dataset.fingerprint === fingerprint) return;
   el.dataset.fingerprint = fingerprint;
@@ -1127,13 +1290,70 @@ function setReadout(el, opts) {
   el.appendChild(wrap);
 }
 
+function updatePresentSignals(signs) {
+  const unique = [];
+  const seen = new Set();
+
+  signs.forEach((s) => {
+    if (!s || seen.has(s.label)) return;
+    seen.add(s.label);
+    unique.push(s);
+  });
+
+  presentSignals = new Map(unique.map(s => [s.label, s]));
+
+  const list = $("signPresentList");
+  if (list) {
+    list.innerHTML = "";
+    if (!unique.length) {
+      const empty = document.createElement("span");
+      empty.className = "signal-chip empty";
+      empty.textContent = "No recognised signal";
+      list.appendChild(empty);
+    } else {
+      unique.forEach((s) => {
+        const chip = document.createElement("span");
+        chip.className = "signal-chip";
+        chip.innerHTML = `<span class="signal-emoji">${s.emoji}</span><span>${s.label}</span>`;
+        list.appendChild(chip);
+      });
+    }
+  }
+
+  document.querySelectorAll(".signal-card[data-signal]").forEach((card) => {
+    card.classList.toggle("active", seen.has(card.dataset.signal));
+  });
+}
+
+function renderSignalCatalog() {
+  const el = $("signCatalog");
+  if (!el) return;
+  el.innerHTML = "";
+  REAL_WORLD_SIGNS.forEach((s) => {
+    const card = document.createElement("div");
+    card.className = "signal-card";
+    card.dataset.signal = s.label;
+    card.innerHTML =
+      `<span class="signal-card-emoji" aria-hidden="true">${s.emoji}</span>` +
+      `<span><span class="signal-card-label">${s.label}</span>` +
+      `<span class="signal-card-note">${s.note}</span></span>`;
+    el.appendChild(card);
+  });
+  updatePresentSignals([]);
+}
+
 function announceSign(sign) {
   const now = Date.now();
   if (!sign) return;
   if (sign.label === lastSign && now - lastSpokeAt < 2500) return;
   lastSign = sign.label;
   lastSpokeAt = now;
-  setReadout($("signReadout"), { tone: sign.label === "Help me" ? "warn" : "hit", emoji: sign.emoji, label: sign.label, detail: "Spoken aloud" });
+  setReadout($("signReadout"), {
+    tone: "hit",
+    emoji: sign.emoji,
+    label: sign.label,
+    detail: "Detected • spoken aloud"
+  });
   speak(sign.label);
 }
 
@@ -1145,6 +1365,7 @@ async function startSignCamera() {
 
   lastSign = "";
   lastSpokeAt = 0;
+  updatePresentSignals([]);
 
   try {
     setReadout(readout, { label: "Waiting for camera access" });
@@ -1156,8 +1377,16 @@ async function startSignCamera() {
     await video.play();
 
     const ctx = canvas.getContext("2d");
-    const hands = new Hands({ locateFile: (f) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + f });
-    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+    const hands = new Hands({
+      locateFile: (f) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + f
+    });
+
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
 
     hands.onResults((results) => {
       canvas.width = video.videoWidth || 640;
@@ -1165,36 +1394,73 @@ async function startSignCamera() {
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
-        const lm = results.multiHandLandmarks[0];
+      const allLandmarks = results.multiHandLandmarks || [];
+      const detected = [];
+
+      allLandmarks.forEach((lm) => {
         drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: "#5FD3B8", lineWidth: 3 });
         drawLandmarks(ctx, lm, { color: "#FFD27A", lineWidth: 1, radius: 3 });
         const sign = readSign(lm);
-        if (sign) announceSign(sign);
-        else setReadout(readout, { label: "Hand in view", detail: "Hold a sign steady for a second" });
+        if (sign) detected.push(sign);
+      });
+
+      const twoHand = readTwoHandSign(allLandmarks);
+      if (twoHand) detected.unshift(twoHand);
+
+      updatePresentSignals(detected);
+
+      if (detected.length) {
+        announceSign(detected[0]);
+      } else if (allLandmarks.length) {
+        setReadout(readout, {
+          label: "Hand in view",
+          detail: "Hold a recognised real-world signal steady"
+        });
       } else {
-        setReadout(readout, { label: "Show your hand", detail: "Fill the frame, palm toward the camera" });
+        setReadout(readout, {
+          label: "Show your hand",
+          detail: "Fill the frame, palm toward the camera"
+        });
       }
+
       ctx.restore();
     });
 
-    signCam = new Camera(video, { onFrame: async () => { await hands.send({ image: video }); }, width: 640, height: 480 });
+    signCam = new Camera(video, {
+      onFrame: async () => { await hands.send({ image: video }); },
+      width: 640,
+      height: 480
+    });
     signCam.start();
-    setReadout(readout, { label: "Camera ready", detail: "Show a sign" });
+    setReadout(readout, {
+      label: "Camera ready",
+      detail: "Show one of the real-world signals below"
+    });
   } catch (err) {
-    setReadout(readout, { tone: "warn", label: "Camera didn't start", detail: "Allow camera access, then tap Start camera again." });
+    setReadout(readout, {
+      tone: "warn",
+      label: "Camera didn't start",
+      detail: "Allow camera access, then tap Start camera again."
+    });
   }
 }
 
 function stopSignCamera() {
-  if (signStream) { signStream.getTracks().forEach((t) => t.stop()); signStream = null; }
-  if (signCam) { try { signCam.stop(); } catch (e) {} signCam = null; }
+  if (signStream) {
+    signStream.getTracks().forEach((t) => t.stop());
+    signStream = null;
+  }
+  if (signCam) {
+    try { signCam.stop(); } catch (e) {}
+    signCam = null;
+  }
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
   const video = $("signVideo"), canvas = $("signCanvas");
   if (video) video.srcObject = null;
   if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   setReadout($("signReadout"), { label: "Camera is off" });
+  updatePresentSignals([]);
   lastSign = "";
   lastSpokeAt = 0;
 }
@@ -1408,18 +1674,13 @@ function addPhrase(text) {
 /* ---------- Tool markup ---------- */
 
 const signLegend = `
-  <div class="legend">
-    <dl>
-      <div class="group">
-        <dt>Closed fist</dt>
-        <dd>Help me 🆘 thumb tucked in · Yes 👍 thumb up · No 👎 thumb down · Stop, please ✋ thumb out sideways</dd>
-      </div>
-      <div class="group">
-        <dt>Everything else</dt>
-        <dd>Me ☝️ · A little bit 🤏 · Call me 🤙 · Wait a moment 🤚 · Two ✌️ · Rock on 🤘 · I love you 🤟 · Three 🖖 · Hello 👋 · Please 🙏 · High five 🖐️ · I'm sorry 😔 · One moment ⏳ · Repeat that 🔁 · OK 👌 · I don't understand 🤷</dd>
-      </div>
-    </dl>
-  </div>`;
+  <div class="signals-present" aria-live="polite">
+    <h4>Signals present now</h4>
+    <div id="signPresentList" class="signals-present-list">
+      <span class="signal-chip empty">No recognised signal</span>
+    </div>
+  </div>
+  <div id="signCatalog" class="signal-catalog" aria-label="Recognised real-world hand signals"></div>`;
 
 const signTool = `
   <article class="tool">
@@ -1431,8 +1692,8 @@ const signTool = `
         </svg>
       </span>
       <div>
-        <h3>Hand sign to voice</h3>
-        <p>20 signs, spoken the moment they're recognised</p>
+        <h3>Real-world hand signal detector</h3>
+        <p>Detects common signals live and highlights every signal currently present</p>
       </div>
     </div>
     ${signLegend}
@@ -1445,6 +1706,10 @@ const signTool = `
       <button id="btnSignStart" class="btn solid" type="button">Start camera</button>
       <button id="btnSignStop" class="btn" type="button">Stop camera</button>
     </div>
+    <p class="fineprint">
+      Recognition works from camera hand landmarks. Gesture meanings can vary across cultures and contexts;
+      the labels here describe common everyday interpretations, not a complete sign-language dictionary.
+    </p>
   </article>`;
 
 const locationTool = `
@@ -1602,6 +1867,8 @@ function openProfile(name) {
   document.querySelectorAll("[data-placard]").forEach((btn) => {
     btn.addEventListener("click", () => showPlacard(btn.dataset.placard));
   });
+
+  renderSignalCatalog();
 
   const signStart = $("btnSignStart"), signStop = $("btnSignStop");
   if (signStart) signStart.addEventListener("click", startSignCamera);
