@@ -1149,38 +1149,70 @@ function handKey(s) {
 }
 
 const REAL_WORLD_SIGNS = [
-  { label: "Stop", emoji: "✋", note: "Stop / wait" },
-  { label: "I need help", emoji: "🆘", note: "Request assistance" },
-  { label: "I need medical help", emoji: "🚑", note: "Medical assistance" },
-  { label: "Danger", emoji: "⚠️", note: "Danger / warning" },
-  { label: "Call me", emoji: "🤙", note: "Phone / contact me" },
-  { label: "Come here", emoji: "👋", note: "Come closer" },
-  { label: "Go away", emoji: "✋", note: "Move away / back off" },
-  { label: "Yes / OK", emoji: "👌", note: "Agreement / okay" },
-  { label: "No", emoji: "👎", note: "Disagreement / no" },
-  { label: "Thank you", emoji: "🙏", note: "Thanks / acknowledgement" },
-  { label: "I am okay", emoji: "👍", note: "Everything is okay" },
-  { label: "I cannot hear", emoji: "👂", note: "Communication difficulty" },
-  { label: "I cannot speak", emoji: "🤐", note: "Communication difficulty" },
-  { label: "Please wait", emoji: "✋", note: "Wait a moment" },
-  { label: "Quiet", emoji: "🤫", note: "Please be quiet" },
-  { label: "Where?", emoji: "☝️", note: "Point / indicate direction" }
+  { label: "Hello / Wave", emoji: "👋", note: "Wave your hand" },
+  { label: "Stop", emoji: "✋", note: "Palm facing forward" },
+  { label: "Five", emoji: "🖐️", note: "All five fingers" },
+  { label: "One", emoji: "☝️", note: "Index finger up" },
+  { label: "Two / Peace", emoji: "✌️", note: "Two fingers up" },
+  { label: "Three", emoji: "🤟", note: "Three fingers up" },
+  { label: "Four", emoji: "🖖", note: "Four fingers up" },
+  { label: "Thumbs up", emoji: "👍", note: "Good / yes" },
+  { label: "Thumbs down", emoji: "👎", note: "No / dislike" },
+  { label: "OK", emoji: "👌", note: "Thumb and index circle" },
+  { label: "Call me", emoji: "🤙", note: "Thumb and little finger" },
+  { label: "Rock on", emoji: "🤘", note: "Index and little finger" },
+  { label: "Point", emoji: "👉", note: "Show a direction" },
+  { label: "Fist", emoji: "✊", note: "Closed hand" },
+  { label: "Pinch", emoji: "🤏", note: "Thumb and index close" }
 ];
 
 function readSign(lm) {
   const s = fingerState(lm);
 
-  if (s.index && s.middle && s.ring && s.pinky && s.thumb) return { label: "Stop", emoji: "✋" };
-  if (!s.index && !s.middle && !s.ring && !s.pinky && !s.thumb) return { label: "I need help", emoji: "🆘" };
-  if (!s.index && !s.middle && !s.ring && !s.pinky && s.thumb) {
+  // Static, visually distinct hand shapes.
+  if (!s.thumb && s.index && !s.middle && !s.ring && !s.pinky)
+    return { label: "One", emoji: "☝️" };
+
+  if (!s.thumb && s.index && s.middle && !s.ring && !s.pinky)
+    return { label: "Two / Peace", emoji: "✌️" };
+
+  if (!s.thumb && s.index && s.middle && s.ring && !s.pinky)
+    return { label: "Three", emoji: "🤟" };
+
+  if (!s.thumb && s.index && s.middle && s.ring && s.pinky)
+    return { label: "Four", emoji: "🖖" };
+
+  if (s.thumb && s.index && s.middle && s.ring && s.pinky)
+    return { label: "Five", emoji: "🖐️" };
+
+  if (s.thumb && !s.index && !s.middle && !s.ring && !s.pinky) {
     const dir = thumbDirection(lm);
-    if (dir === "up") return { label: "I am okay", emoji: "👍" };
-    if (dir === "down") return { label: "No", emoji: "👎" };
+    if (dir === "up") return { label: "Thumbs up", emoji: "👍" };
+    if (dir === "down") return { label: "Thumbs down", emoji: "👎" };
   }
-  if (pinched(lm) && s.middle && s.ring && s.pinky) return { label: "Yes / OK", emoji: "👌" };
-  if (s.thumb && !s.index && !s.middle && !s.ring && s.pinky) return { label: "Call me", emoji: "🤙" };
-  if (!s.thumb && s.index && !s.middle && !s.ring && !s.pinky) return { label: "Where?", emoji: "☝️" };
-  if (!s.thumb && s.index && s.middle && !s.ring && !s.pinky) return { label: "Please wait", emoji: "✌️" };
+
+  if (pinched(lm) && s.middle && s.ring && s.pinky)
+    return { label: "OK", emoji: "👌" };
+
+  if (s.thumb && !s.index && !s.middle && !s.ring && s.pinky)
+    return { label: "Call me", emoji: "🤙" };
+
+  if (!s.thumb && s.index && !s.middle && !s.ring && s.pinky)
+    return { label: "Rock on", emoji: "🤘" };
+
+  if (s.index && !s.middle && !s.ring && !s.pinky && s.thumb)
+    return { label: "Point", emoji: "👉" };
+
+  if (!s.thumb && !s.index && !s.middle && !s.ring && !s.pinky)
+    return { label: "Fist", emoji: "✊" };
+
+  if (pinched(lm) && !s.middle && !s.ring && !s.pinky)
+    return { label: "Pinch", emoji: "🤏" };
+
+  // A static open palm is Stop. Hello / Wave is detected separately from motion.
+  if (s.thumb && s.index && s.middle && s.ring && s.pinky)
+    return { label: "Stop", emoji: "✋" };
+
   return null;
 }
 
@@ -1195,6 +1227,28 @@ function readTwoHandSign(landmarks) {
     if (Math.hypot(pa.x-pb.x,pa.y-pb.y)<0.40) return { label: "I need medical help", emoji: "🚑" };
   }
   return null;
+}
+
+let waveHistory = [];
+
+function isWaving(lm) {
+  const p = palmCenter(lm);
+  const now = performance.now();
+  waveHistory.push({ x: p.x, y: p.y, t: now });
+  waveHistory = waveHistory.filter(v => now - v.t < 700);
+  if (waveHistory.length < 6) return false;
+
+  const xs = waveHistory.map(v => v.x);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  let directionChanges = 0;
+  let previous = 0;
+  for (let i = 1; i < xs.length; i++) {
+    const d = xs[i] - xs[i - 1];
+    const sign = Math.abs(d) > 0.008 ? Math.sign(d) : 0;
+    if (sign && previous && sign !== previous) directionChanges++;
+    if (sign) previous = sign;
+  }
+  return maxX - minX > 0.12 && directionChanges >= 2;
 }
 
 /* ---------- Sign camera ---------- */
@@ -1310,6 +1364,7 @@ async function startSignCamera() {
 
   lastSign = "";
   lastSpokeAt = 0;
+  waveHistory = [];
   updatePresentSignals([]);
 
   try {
@@ -1345,7 +1400,9 @@ async function startSignCamera() {
       allLandmarks.forEach((lm) => {
         drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: "#5FD3B8", lineWidth: 3 });
         drawLandmarks(ctx, lm, { color: "#FFD27A", lineWidth: 1, radius: 3 });
-        const sign = readSign(lm);
+        const sign = isWaving(lm)
+          ? { label: "Hello / Wave", emoji: "👋" }
+          : readSign(lm);
         if (sign) detected.push(sign);
       });
 
@@ -1637,8 +1694,8 @@ const signTool = `
         </svg>
       </span>
       <div>
-        <h3>Accessibility & emergency hand signals</h3>
-        <p>Detects useful communication and assistance signals live and highlights every signal currently present</p>
+        <h3>Everyday hand signal detector</h3>
+        <p>Detects distinct everyday hand signals live and highlights every signal currently present</p>
       </div>
     </div>
     ${signLegend}
@@ -1652,8 +1709,8 @@ const signTool = `
       <button id="btnSignStop" class="btn" type="button">Stop camera</button>
     </div>
     <p class="fineprint">
-      These are accessibility-oriented signals selected for this app. Some meanings are common everyday gestures;
-      app-specific emergency meanings are clearly labelled and should not be treated as universal sign language.
+      These are common everyday hand gestures. Hello is detected from a wave motion, while Stop is detected as a held open palm.
+      Similar-looking gestures can occasionally be confused by camera angle, lighting, or hand position.
     </p>
   </article>`;
 
