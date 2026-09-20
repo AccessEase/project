@@ -682,19 +682,6 @@ footer {
         <h2 id="alarmTitle">Emergency</h2>
         <span id="alarmContact">Google Meet</span>
       </div>
-
-      <div class="emergency-contact">
-        <label for="emergencyGmail">Emergency Google account (Gmail)</label>
-        <input id="emergencyGmail" type="email" inputmode="email" autocomplete="email"
-               placeholder="example@gmail.com" aria-describedby="gmailSaved" />
-        <div id="gmailSaved" class="saved">Saved on this device. This is used when Emergency is triggered.</div>
-      </div>
-
-      <div class="emergency-contact emergency-phone">
-        <label for="emergencyPhone">Emergency phone number</label>
-        <input id="emergencyPhone" type="tel" inputmode="tel" autocomplete="tel"
-               placeholder="e.g. +91 98765 43210" aria-describedby="phoneSaved" />
-        <div id="phoneSaved" class="saved">Saved on this device. Used for the emergency location message.</div>
       </div>
 
       <button id="btnEmergency" class="alarm-primary" type="button">
@@ -705,7 +692,7 @@ footer {
         </span>
         <span>
           <strong>Emergency — Alert &amp; Call</strong>
-          <small>Alarm rings for 10 seconds, then sends location and opens Google Meet</small>
+          <small>Alarm rings for 10 seconds, then sends location and opens the Google Meet app</small>
         </span>
       </button>
 
@@ -856,11 +843,22 @@ function saveEmergencyPhone() {
 }
 
 function openGoogleMeetCall() {
-  const email = getEmergencyGmail();
-  if (!email) {
-    setAlarmStatus("Enter an emergency Gmail address first.");
-    $("emergencyGmail")?.focus();
-    return false;
+    const email = getEmergencyGmail();
+    if (!email) {
+      setAlarmStatus("Enter an emergency Gmail address in Emergency setup first.");
+      $("emergencyContacts")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      $("emergencyGmail")?.focus();
+      return false;
+    }
+    saveEmergencyGmail();
+
+    // Google does not publish a supported web/deep-link format that lets
+    // an arbitrary HTML page directly dial a Gmail address and press Call.
+    // This opens the Google Meet calling experience; the signed-in Meet app
+    // may handle the link if the device has Meet installed.
+    setAlarmStatus("Opening Google Meet for " + email + "…");
+    window.location.href = MEET_CALLS_URL;
+    return true;
   }
   saveEmergencyGmail();
   // Google does not expose a public URL that lets an arbitrary web page
@@ -969,11 +967,11 @@ $("btnEmergency").addEventListener("click", () => {
   startAlarm();
   $("btnCancel").hidden = false;
   let left = 10;
-  setAlarmStatus("Alarm sounding. Calling for help in " + left + "s");
+  setAlarmStatus("Alarm sounding. Emergency action in " + left + "s");
   countdownTimer = setInterval(() => {
     left -= 1;
     if (left > 0) {
-      setAlarmStatus("Alarm sounding. Calling for help in " + left + "s");
+      setAlarmStatus("Alarm sounding. Emergency action in " + left + "s");
       return;
     }
     clearInterval(countdownTimer);
@@ -1772,7 +1770,7 @@ if (savedEmergencyPhone) {
 $("emergencyPhone").addEventListener("change", saveEmergencyPhone);
 $("emergencyPhone").addEventListener("blur", saveEmergencyPhone);
 
-$("alarmContact").textContent = "Meet + location";
+$("alarmContact").textContent = "Meet app + location";
 
 const saved = recall("accessEaseProfile");
 if (saved && profiles[saved]) openProfile(saved);
@@ -1783,5 +1781,27 @@ window.addEventListener("beforeunload", () => {
   stopSceneCamera();
 });
 </script>
+
+
+  <section id="emergencyContacts" class="card" style="margin:24px auto;max-width:900px;">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Emergency setup</span>
+        <h2>Emergency contact details</h2>
+        <p class="muted">Enter these once. AccessEase saves them on this device and uses them when Emergency or Shake Alert is triggered.</p>
+      </div>
+    </div>
+    <div class="emergency-contact emergency-gmail">
+      <label for="emergencyGmail">Emergency Google account (Gmail)</label>
+      <input id="emergencyGmail" type="email" inputmode="email" autocomplete="email" placeholder="example@gmail.com" aria-describedby="gmailSaved" />
+      <div id="gmailSaved" class="saved">Saved on this device. Used for the Google Meet call.</div>
+    </div>
+    <div class="emergency-contact emergency-phone">
+      <label for="emergencyPhone">Emergency phone number</label>
+      <input id="emergencyPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. +91 98765 43210" aria-describedby="phoneSaved" />
+      <div id="phoneSaved" class="saved">Saved on this device. Used for the emergency location message.</div>
+    </div>
+  </section>
+
 </body>
 </html>
